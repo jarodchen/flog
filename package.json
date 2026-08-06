@@ -1,0 +1,28 @@
+{
+  "name": "jarodchen-github-io",
+  "version": "1.0.0",
+  "description": "Jarod Chen's Personal Website",
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev docs",
+    "build": "vitepress build docs",
+    "preview": "vitepress preview docs"
+  },
+  "keywords": [
+    "portfolio",
+    "personal-website"
+  ],
+  "author": "Jarod Chen",
+  "license": "MIT",
+  "devDependencies": {
+    "@nolebase/markdown-it-bi-directional-links": "^2.18.2",
+    "mermaid": "^11.16.0",
+    "vitepress": "^1.6.4",
+    "vitepress-plugin-mermaid": "^2.0.17",
+    "vitepress-plugin-rss": "^0.4.4",
+    "vue": "^3.5.0"
+  },
+  "dependencies": {
+    "vitepress-plugin-mermaid-pan-zoom": "^1.0.2"
+  }
+}
