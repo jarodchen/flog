@@ -2,9 +2,9 @@
 title: 影集
 description: 摄影作品墙 —— 记录光影里的日常
 sidebar: false
-aside: false
 outline: false
 pageClass: gallery-page
+layout: home
 ---
 
 <script setup>

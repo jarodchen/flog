@@ -33,6 +33,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # 影集缩略图 / 模糊占位图：本地不提交（已 gitignore），必须在构建前生成，
+      # 否则线上图片墙会回退到原图，加载又慢又费流量。
+      - name: Generate photo thumbnails
+        run: npm run photos:thumb
+
       - name: Build with VitePress
         run: npm run build
 
