@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 提问与讨论
+    url: https://github.com/jarodchen/flog/discussions
+    about: 使用上的疑问、想法交流，请到 Discussions
+  - name: 🔒 报告安全漏洞
+    url: https://github.com/jarodchen/flog/security/advisories/new
+    about: 请勿公开提交安全问题，使用私密安全公告渠道
+  - name: 📖 阅读文档
+    url: https://github.com/jarodchen/flog#readme
+    about: 提问前先看看 README 是否已有答案

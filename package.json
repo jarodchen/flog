@@ -11,12 +11,28 @@
   },
   "keywords": [
     "portfolio",
-    "personal-website"
+    "personal-website",
+    "blog",
+    "vitepress",
+    "photography",
+    "gallery"
   ],
   "author": "Jarod Chen",
   "license": "MIT",
+  "homepage": "https://github.com/jarodchen/flog#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jarodchen/flog.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jarodchen/flog/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "devDependencies": {
     "@nolebase/markdown-it-bi-directional-links": "^2.18.2",
+    "@types/node": "^26.1.2",
     "mermaid": "^11.16.0",
     "sharp": "^0.35.3",
     "vitepress": "^1.6.4",

@@ -12,7 +12,7 @@ updateArchivesPage()
 // RSS 配置
 const rssOptions = {
   title: "白日梦想家",
-  baseUrl: "https://jarodchen.github.io",
+  baseUrl: "https://jarodchen.github.io/flog",
   copyright: 'Copyright © 2026 Jarod Chen',
 }
 
@@ -73,8 +73,8 @@ export default withMermaid(defineConfig({
       }
     },
     
-    // 将右侧的文章目录（页面导航）挪到左侧
-    aside: 'right',
+    // 文章目录（页面导航）默认在右侧；改为 'left' 可挪到左侧，false 为隐藏
+    // aside: 'left',
 
     outline: {
       level: [2, 3],
