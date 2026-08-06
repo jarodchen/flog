@@ -17,7 +17,7 @@ const banner = computed(() =>  SITE_BASE + frontmatter.value.banner)
 
 
 function tagLink(tag: string) {
-  return `/blog/tags/${tag.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '-')}`
+  return SITE_BASE + `blog/tags/${tag.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '-')}`
 }
 
 // Mermaid 平移缩放：该插件依赖 svg-pan-zoom（模块顶层引用 window / MutationObserver），
