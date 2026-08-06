@@ -29,6 +29,7 @@ export default withMermaid(defineConfig({
   themeConfig: {
     nav: [
       { text: '首页', link: '/' },
+      { text: '博客', link: ' /blog/categories/' },
       { text: '影集', link: '/yingji' },
       { text: '技术博客', link: 'https://jarodchen.github.io/', target: '_blank' },
       { text: '关于我', link: '/about' },
@@ -40,6 +41,7 @@ export default withMermaid(defineConfig({
           text: '概览',
           items: [
             { text: '首页', link: '/' },
+            { text: '博客', link: ' /blog/categories/' },
             { text: '影集', link: '/yingji' },
             { text: '技术博客', link: 'https://jarodchen.github.io/', target: '_blank' },
             { text: '关于我', link: '/about' }
