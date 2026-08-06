@@ -3,6 +3,7 @@ import DefaultTheme from 'vitepress/theme'
 import { useData } from 'vitepress'
 import { computed, defineAsyncComponent } from 'vue'
 import BackToTop from './components/BackToTop.vue'
+import { SITE_BASE } from '../base'
 
 const { Layout } = DefaultTheme
 const { frontmatter } = useData()
@@ -11,6 +12,9 @@ const { frontmatter } = useData()
 const isPost = computed(
   () => !!frontmatter.value.date && frontmatter.value.layout !== 'home'
 )
+
+const banner = computed(() =>  SITE_BASE + frontmatter.value.banner)
+
 
 function tagLink(tag: string) {
   return `/blog/tags/${tag.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '-')}`
@@ -29,7 +33,7 @@ const MermaidEnhancer = defineAsyncComponent(
       <img
         v-if="frontmatter.banner"
         class="post-banner"
-        :src="frontmatter.banner"
+        :src="banner"
         :alt="'横幅：' + (frontmatter.title || '')"
       />
       <div v-if="isPost" class="post-meta">
