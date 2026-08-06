@@ -3,6 +3,7 @@ import { withMermaid } from 'vitepress-plugin-mermaid'
 import { generateBlogSidebar, updateArchivesPage, updateBlogIndexPage } from './blog-utils'
 import { RssPlugin } from 'vitepress-plugin-rss'
 import { BiDirectionalLinks } from '@nolebase/markdown-it-bi-directional-links' // [!code ++]
+import { SITE_BASE } from './base'
 
 
 // 启动时自动生成博客首页和归档页面（仅执行一次）
@@ -12,12 +13,18 @@ updateArchivesPage()
 // RSS 配置
 const rssOptions = {
   title: "白日梦想家",
-  baseUrl: "https://jarodchen.github.io/flog",
+  // VitePress 的 base('/flog/') 会被 RSS 插件自动拼到 URL 前，
+  // 这里只写站点根域名，否则会出现 /flog/flog/ 重复路径。
+  baseUrl: "https://jarodchen.github.io",
   copyright: 'Copyright © 2026 Jarod Chen',
 }
 
 export default withMermaid(defineConfig({
-  title: "Jarod Chen's GitHub Pages",
+  // GitHub Pages 项目站点部署在二级目录 /flog/，必须设置 base，
+  // 否则所有 JS/CSS/图片资源都会请求到根目录而 404。
+  base: SITE_BASE,
+
+  title: "白日梦想家",
   description: '技术学习历程、项目实践和知识分享',
 
   // Mermaid 图表配置（流程图、时序图、类图等）
@@ -29,7 +36,7 @@ export default withMermaid(defineConfig({
   themeConfig: {
     nav: [
       { text: '首页', link: '/' },
-      { text: '博客', link: ' /blog/categories/' },
+      { text: '博客', link: '/blog/categories/' },
       { text: '影集', link: '/yingji' },
       { text: '技术博客', link: 'https://jarodchen.github.io/', target: '_blank' },
       { text: '关于我', link: '/about' },
@@ -41,7 +48,7 @@ export default withMermaid(defineConfig({
           text: '概览',
           items: [
             { text: '首页', link: '/' },
-            { text: '博客', link: ' /blog/categories/' },
+            { text: '博客', link: '/blog/categories/' },
             { text: '影集', link: '/yingji' },
             { text: '技术博客', link: 'https://jarodchen.github.io/', target: '_blank' },
             { text: '关于我', link: '/about' }
@@ -61,7 +68,7 @@ export default withMermaid(defineConfig({
     },
     
     editLink: {
-      pattern: 'https://github.com/jarodchen/jarodchen.github.io/edit/main/docs/:path',
+      pattern: 'https://github.com/jarodchen/flog/edit/main/docs/:path',
       text: '在 GitHub 上编辑此页'
     },
     
@@ -101,7 +108,7 @@ export default withMermaid(defineConfig({
   },
   
   head: [
-    ['link', { rel: 'icon', href: '/favicon.ico' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: SITE_BASE + 'favicon.svg' }],
     ['meta', { name: 'keywords', content: 'Jarod Chen, GitHub Pages, Portfolio, .NET, JavaScript' }]
   ],
   

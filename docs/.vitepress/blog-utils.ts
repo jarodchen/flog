@@ -1,5 +1,6 @@
 // VitePress 配置扩展 - 自动更新博客侧边栏和归档页
 import { generateBlogSidebar, getBlogPostsMetadata } from './sidebar-generator'
+import { SITE_BASE } from './base'
 import { updateAllCategoryPages } from './category-generator'
 import { updateAllTagPages } from './tag-generator'
 import fs from 'fs'
@@ -169,7 +170,7 @@ hero:
     Object.keys(postsByCategory).forEach(category => {
       const icon = categoryIcons[category] || '📁'
       const categoryPosts = postsByCategory[category]
-      const categoryLink = `/blog/categories/${category.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '-')}`
+      const categoryLink = SITE_BASE + 'blog/categories/' + category.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '-')
       
       content += `<div class="cat-card">
   <h4 class="cat-card-head">
@@ -182,7 +183,7 @@ hero:
       // 显示最新的 3 篇文章
       const recentPosts = categoryPosts.slice(0, 3)
       recentPosts.forEach(post => {
-        content += `    <li><a href="${post.link}">${post.title}</a></li>\n`
+        content += `    <li><a href="${SITE_BASE + post.link.replace(/^\//, '')}">${post.title}</a></li>\n`
       })
 
       if (categoryPosts.length > 3) {
@@ -199,7 +200,7 @@ hero:
 
 <p class="cat-foot">
   👆 点击分类查看该领域的所有文章 |
-  <a href="/blog/categories/">查看完整分类索引</a>
+  <a href="${SITE_BASE}blog/categories/">查看完整分类索引</a>
 </p>
 
 ---

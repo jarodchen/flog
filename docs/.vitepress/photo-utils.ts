@@ -14,6 +14,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { SITE_BASE } from './base'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -94,9 +95,12 @@ function readHeader(file: string, max = HEADER_BYTES): Buffer {
   }
 }
 
-/** 把相对路径转成可直接访问的 URL（中文 / 空格需要转义） */
+/**
+ * 把相对路径转成可直接访问的 URL（中文 / 空格需要转义）。
+ * 拼接 SITE_BASE（如 /flog/），否则部署在二级目录时图片会 404。
+ */
 function toUrl(rel: string): string {
-  return '/photos/' + rel.split('/').map(encodeURIComponent).join('/')
+  return SITE_BASE + 'photos/' + rel.split('/').map(encodeURIComponent).join('/')
 }
 
 /* -------------------------------------------------------------------------- */

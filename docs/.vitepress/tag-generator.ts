@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { getBlogPostsMetadata } from './sidebar-generator'
+import { SITE_BASE } from './base'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -42,7 +43,7 @@ description: 按标签浏览技术文章
 
     tagNames.forEach(tag => {
       const count = postsByTag[tag].length
-      const tagLink = `/blog/tags/${tag.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '-')}`
+      const tagLink = SITE_BASE + 'blog/tags/' + tag.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '-')
       content += `  <a class="tag-pill" href="${tagLink}"><span class="tag-name">${tag}</span><span class="tag-count">${count}</span></a>\n`
     })
 
@@ -156,8 +157,8 @@ export function updateTagPage(tag: string) {
       date: post.date || '',
       description: post.description || '',
       tags: post.tags || [],
-      banner: post.banner || '',
-      link: post.link
+      banner: post.banner ? SITE_BASE + post.banner.replace(/^\//, '') : '',
+      link: SITE_BASE + post.link.replace(/^\//, '')
     }))
     const postsJson = JSON.stringify(postsData)
       .replace(/</g, '\\u003c')
@@ -181,7 +182,7 @@ const posts = ${postsJson}
 <div class="tag-posts">
   <a v-for="post in posts" :key="post.link" class="card" :href="post.link">
     <span class="card-thumb">
-      <img :src="post.banner || '/images/placeholder.png'" :alt="post.title" loading="lazy" />
+      <img :src="post.banner || '${SITE_BASE}images/placeholder.webp'" :alt="post.title" loading="lazy" />
     </span>
     <span class="card-content">
       <span class="card-meta">

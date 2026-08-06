@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { getBlogPostsMetadata } from './sidebar-generator'
+import { SITE_BASE } from './base'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -77,7 +78,7 @@ description: 按分类浏览技术文章
       const count = posts.length
       // 生成友好的 URL 路径
       const filename = category.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '-')
-      const link = `/blog/categories/${filename}`
+      const link = SITE_BASE + 'blog/categories/' + filename
 
       content += `<div style="border: 1px solid var(--vp-c-divider); border-radius: 8px; padding: 20px; transition: all 0.2s ease;" onmouseover="this.style.borderColor='var(--vp-c-brand)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'" onmouseout="this.style.borderColor='var(--vp-c-divider)'; this.style.boxShadow='none'">
   <h3 style="margin: 0 0 12px 0; font-size: 1.1em; display: flex; justify-content: space-between; align-items: center;">
@@ -91,7 +92,7 @@ description: 按分类浏览技术文章
 
       // 显示最新的 3 篇文章标题
       posts.slice(0, 3).forEach(post => {
-        content += `    <li><a href="${post.link}" style="color: var(--vp-c-text-1); text-decoration: none;">${post.title}</a></li>\n`
+        content += `    <li><a href="${SITE_BASE + post.link.replace(/^\//, '')}" style="color: var(--vp-c-text-1); text-decoration: none;">${post.title}</a></li>\n`
       })
 
       if (count > 3) {
@@ -169,8 +170,8 @@ export function updateCategoryPage(category: string) {
       date: post.date || '',
       description: post.description || '',
       tags: post.tags || [],
-      banner: post.banner || '',
-      link: post.link
+      banner: post.banner ? SITE_BASE + post.banner.replace(/^\//, '') : '',
+      link: SITE_BASE + post.link.replace(/^\//, '')
     }))
     const postsJson = JSON.stringify(postsData)
       .replace(/</g, '\\u003c')
@@ -195,7 +196,7 @@ const posts = ${postsJson}
 <div class="category-posts">
   <a v-for="post in posts" :key="post.link" class="card" :href="post.link">
     <span class="card-thumb">
-      <img :src="post.banner || '/images/placeholder.png'" :alt="post.title" loading="lazy" />
+      <img :src="post.banner || '${SITE_BASE}images/placeholder.webp'" :alt="post.title" loading="lazy" />
     </span>
     <span class="card-content">
       <span class="card-meta">
