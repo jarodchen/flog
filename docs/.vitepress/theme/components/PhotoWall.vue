@@ -11,19 +11,26 @@
  * 6. 有缩略图用缩略图（_thumbs），有 LQIP 用模糊占位，视觉上「秒开」。
  */
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { data as gallery } from '../photos.data'
-import type { PhotoItem } from '../photos.data'
+import { data as photosData } from '../photos.data'
+import type { GalleryData, PhotoItem } from '../photos.data'
 import PhotoLightbox from './PhotoLightbox.vue'
 
 const props = withDefaults(
   defineProps<{
+    /** 作品墙数据；不传则默认用「影集（photos）」数据（影集页用法） */
+    gallery?: GalleryData
     /** 只显示某个相册（目录名），默认全部 */
     album?: string
     /** 图片间距 */
     gap?: number
+    /** 分组模式：按文件夹分组、每组带标题平铺（否则为标签页筛选 + 单一虚拟滚动墙） */
+    group?: boolean
   }>(),
-  { album: '', gap: 12 }
+  { album: '', gap: 12, gallery: undefined, group: false }
 )
+
+/** 解析后的数据源：优先用页面传入的（如图库页），回退到影集 */
+const gallery = props.gallery ?? photosData
 
 /**
  * 挂载前（SSR / hydration 阶段）用纯 CSS 弹性布局占位：
@@ -35,7 +42,8 @@ const SSR_VIEWPORT = 900
 const SSR_LIMIT = 24
 
 const albums = gallery.albums
-const activeAlbum = ref(props.album || 'all')
+/** 分组模式一次只看一个相册：默认选中第一个；非分组模式默认「全部」 */
+const activeAlbum = ref(props.album || (props.group ? albums[0]?.key ?? 'all' : 'all'))
 
 const photos = computed<PhotoItem[]>(() =>
   activeAlbum.value === 'all'
@@ -46,6 +54,8 @@ const photos = computed<PhotoItem[]>(() =>
 /* ----------------------------- 尺寸与滚动状态 ----------------------------- */
 
 const wrapEl = ref<HTMLElement | null>(null)
+/** 根容器：分组模式下没有单一 wrapEl，宽度从这里量 */
+const rootEl = ref<HTMLElement | null>(null)
 const containerWidth = ref(SSR_WIDTH)
 const viewportH = ref(SSR_VIEWPORT)
 const scrollY = ref(0)
@@ -82,8 +92,7 @@ const layoutList = computed<PhotoItem[]>(() =>
 )
 
 /** 等高瀑布流（Flickr / Google Photos 式）行排版 */
-const rows = computed<Row[]>(() => {
-  const list = layoutList.value
+function buildRows(list: PhotoItem[]): Row[] {
   const width = containerWidth.value
   const gap = props.gap
   const target = targetRowHeight.value
@@ -128,7 +137,12 @@ const rows = computed<Row[]>(() => {
     top += row.height + gap
   }
   return result
-})
+}
+
+/** 非分组模式：按当前选中相册排版（挂载前只排首屏若干张，挂载后走虚拟滚动） */
+const rows = computed<Row[]>(() => buildRows(layoutList.value))
+
+/** 分组模式：每个相册一组（一页只展示当前选中的那一组，避免一次性渲染所有图）。 */
 
 const totalHeight = computed(() => {
   const list = rows.value
@@ -156,6 +170,55 @@ const visibleRows = computed<Row[]>(() => {
 
 /** 实际渲染的行：挂载后走虚拟滚动 */
 const displayRows = computed<Row[]>(() => (mounted.value ? visibleRows.value : rows.value))
+
+/** 分组模式下，按该组相对页面的绝对偏移做组内虚拟滚动（只渲染视口上下各一屏内的行） */
+function secVisible(sec: { rows: Row[]; canvasTop: number; end?: number }): Row[] {
+  const list = sec.rows
+  if (!mounted.value || !list.length) return list
+  const vh = viewportH.value
+  const offset = scrollY.value
+  // 视口顶 / 底 映射到页面绝对坐标
+  const viewTop = offset
+  const viewBottom = offset + vh
+  // 该组可视判定：组 canvas 起点距视口顶、终点距视口底，留一屏缓冲
+  const min = viewTop - vh - sec.canvasTop
+  const max = viewBottom + vh - sec.canvasTop
+  const out: Row[] = []
+  for (const row of list) {
+    if (row.top + row.height < min) continue
+    if (row.top > max) break
+    out.push(row)
+  }
+  return out
+}
+
+/** 分组模式：只算「当前选中的那个相册组」（一页一组，避免一次性渲染所有图） */
+const albumIndex = computed(() => albums.findIndex((a) => a.key === activeAlbum.value))
+const activeSection = computed(() => {
+  if (!props.group) return null
+  const a = albums[albumIndex.value]
+  if (!a) return null
+  const list = gallery.photos.filter((p) => p.album === a.key)
+  const r = buildRows(list)
+  const total = r.length ? r[r.length - 1].top + r[r.length - 1].height : 0
+  return { album: a, rows: r, total }
+})
+
+/** 分组模式：每个相册的封面（首张缩略图）+ 名称 + 张数，用于组选择器预览 */
+const albumCovers = computed(() =>
+  albums.map((a) => {
+    const cover = gallery.photos.find((p) => p.album === a.key)
+    return { key: a.key, title: a.title, count: a.count, cover: cover?.thumb ?? '' }
+  })
+)
+
+/** 分组模式：上 / 下一组循环切换 */
+function stepAlbum(dir: 1 | -1) {
+  const i = albumIndex.value
+  if (i < 0 || !albums.length) return
+  const next = (i + dir + albums.length) % albums.length
+  switchAlbum(albums[next].key)
+}
 
 function rowStyle(row: Row) {
   return mounted.value
@@ -197,10 +260,11 @@ function schedule(fn: () => void) {
 }
 
 function measure() {
-  const el = wrapEl.value
+  const el = rootEl.value ?? wrapEl.value
   if (!el) return
   containerWidth.value = el.clientWidth
-  wallTop.value = el.getBoundingClientRect().top + window.scrollY
+  const topEl = wrapEl.value ?? rootEl.value
+  wallTop.value = (topEl ? topEl.getBoundingClientRect().top : 0) + window.scrollY
   viewportH.value = window.innerHeight
   scrollY.value = window.scrollY
 }
@@ -218,17 +282,19 @@ onMounted(() => {
   // 量到真实宽度后再切到精确排版，避免布局跳动
   mounted.value = true
   window.addEventListener('scroll', onScroll, { passive: true })
-  if (typeof ResizeObserver !== 'undefined' && wrapEl.value) {
+  if (typeof ResizeObserver !== 'undefined' && rootEl.value) {
     ro = new ResizeObserver(() => schedule(measure))
-    ro.observe(wrapEl.value)
+    ro.observe(rootEl.value)
   } else {
     window.addEventListener('resize', measure, { passive: true })
   }
+  window.addEventListener('keydown', onKeydown)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', onScroll)
   window.removeEventListener('resize', measure)
+  window.removeEventListener('keydown', onKeydown)
   ro?.disconnect()
   if (frame) cancelAnimationFrame(frame)
 })
@@ -244,13 +310,31 @@ function switchAlbum(key: string) {
   if (activeAlbum.value === key) return
   activeAlbum.value = key
   schedule(measure)
+  // 切组后滚回墙顶，确保新组从标题开始显示
+  if (props.group && typeof window !== 'undefined') {
+    window.scrollTo({ top: wallTop.value - 8, behavior: 'smooth' })
+  }
+}
+
+/* ------------------------------ 组选择器浮层 ------------------------------ */
+/** 点击组名弹出所有组的预览，点哪个跳到哪组 */
+const pickerOpen = ref(false)
+function togglePicker() {
+  pickerOpen.value = !pickerOpen.value
+}
+function pickAlbum(key: string) {
+  pickerOpen.value = false
+  switchAlbum(key)
+}
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') pickerOpen.value = false
 }
 </script>
 
 <template>
-  <div class="photo-wall">
-    <!-- 相册筛选 -->
-    <div v-if="albums.length > 1" class="pw-tabs">
+  <div ref="rootEl" class="photo-wall">
+    <!-- 相册筛选（非分组模式） -->
+    <div v-if="!group && albums.length > 1" class="pw-tabs">
       <button
         class="pw-tab"
         type="button"
@@ -273,17 +357,133 @@ function switchAlbum(key: string) {
 
     <!-- 空状态引导 -->
     <div v-if="gallery.empty" class="pw-empty">
-      <p class="pw-empty-title">📷 影集还是空的</p>
+      <p class="pw-empty-title">📷 这里还没有图片</p>
       <p>
-        把照片放进 <code>docs/public/photos/</code> 即可自动上墙；<br />
-        建子目录（如 <code>docs/public/photos/2026-西藏/</code>）会自动变成一个相册分类。
+        把图片放进 <code>docs/public/photos/</code> 或 <code>docs/public/pic/</code> 子目录即可自动上墙；<br />
+        建子目录（如 <code>docs/public/pic/插画/</code>）会自动变成一组。
       </p>
       <p class="pw-empty-tip">
         照片较多时建议先执行 <code>npm run photos:thumb</code> 生成缩略图与模糊占位图，加载会快很多。
       </p>
     </div>
 
-    <!-- 作品墙 -->
+    <!-- 分组模式：按相册分组，但一页只展示当前选中的那一组 + 上/下一组导航 -->
+    <div v-else-if="group" class="pw-groups">
+      <!-- 吸顶工具条：组名标签条 + 上/下一组导航（点击标签或组名预览都能切组） -->
+      <div class="pw-bar">
+        <!-- 组名标签条：点哪个标签就显示哪组 -->
+        <div v-if="albums.length > 1" class="pw-album-tags">
+          <button
+            v-for="a in albums"
+            :key="a.key"
+            class="pw-album-tag"
+            type="button"
+            :class="{ active: a.key === activeAlbum }"
+            @click="switchAlbum(a.key)"
+          >
+            {{ a.title }}
+            <span class="pw-album-tag-num">{{ a.count }}</span>
+          </button>
+        </div>
+
+        <div v-if="activeSection" class="pw-pager">
+        <button
+          class="pw-pager-btn"
+          type="button"
+          :disabled="albums.length <= 1"
+          :title="albums[(albumIndex + albums.length - 1) % albums.length]?.title"
+          @click="stepAlbum(-1)"
+        >
+          ‹ 上一组
+        </button>
+        <button class="pw-pager-info" type="button" @click="togglePicker">
+          <strong>{{ activeSection.album.title }}</strong>
+          <span class="pw-pager-num">{{ activeSection.album.count }} 张</span>
+          <span class="pw-pager-idx">第 {{ albumIndex + 1 }} / {{ albums.length }} 组 ▾</span>
+        </button>
+        <button
+          class="pw-pager-btn"
+          type="button"
+          :disabled="albums.length <= 1"
+          :title="albums[(albumIndex + 1) % albums.length]?.title"
+          @click="stepAlbum(1)"
+        >
+          下一组 ›
+        </button>
+      </div>
+      </div>
+
+      <!-- 组选择器：点击组名弹出所有组的封面预览，点哪个跳到哪组 -->
+      <Teleport to="body">
+        <div v-if="pickerOpen" class="pw-picker-backdrop" @click="pickerOpen = false">
+          <div class="pw-picker" role="dialog" aria-label="选择相册" @click.stop>
+            <div class="pw-picker-head">
+              <span>选择相册 · 共 {{ albums.length }} 组</span>
+              <button class="pw-picker-close" type="button" aria-label="关闭" @click="pickerOpen = false">✕</button>
+            </div>
+            <div class="pw-picker-grid">
+              <button
+                v-for="c in albumCovers"
+                :key="c.key"
+                class="pw-pick-card"
+                :class="{ active: c.key === activeAlbum }"
+                type="button"
+                @click="pickAlbum(c.key)"
+              >
+                <div class="pw-pick-cover">
+                  <img v-if="c.cover" :src="c.cover" :alt="c.title" loading="lazy" decoding="async" />
+                </div>
+                <div class="pw-pick-meta">
+                  <span class="pw-pick-title">{{ c.title }}</span>
+                  <span class="pw-pick-count">{{ c.count }} 张</span>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </Teleport>
+
+      <section v-if="activeSection" class="pw-group">
+        <div
+          class="pw-canvas"
+          :class="{ 'is-virtual': mounted }"
+          :style="mounted ? { height: activeSection.total + 'px' } : undefined"
+        >
+          <div v-for="row in secVisible({ rows: activeSection.rows, canvasTop: wallTop })" :key="row.key" class="pw-row" :style="rowStyle(row)">
+            <figure
+              v-for="cell in row.cells"
+              :key="cell.p.id"
+              class="pw-cell"
+              :style="cellStyle(row, cell)"
+              role="button"
+              tabindex="0"
+              :aria-label="cell.p.title"
+              @click="openViewer(cell.p)"
+              @keydown.enter.prevent="openViewer(cell.p)"
+            >
+              <img
+                class="pw-img"
+                :class="{ 'is-loaded': loaded.has(cell.p.id) }"
+                :src="cell.p.thumb"
+                :alt="cell.p.title"
+                :width="cell.p.width"
+                :height="cell.p.height"
+                loading="lazy"
+                decoding="async"
+                @load="onImgLoad(cell.p.id)"
+                @error="onImgLoad(cell.p.id)"
+              />
+              <figcaption class="pw-caption">
+                <span class="pw-caption-title">{{ cell.p.title }}</span>
+                <span v-if="cell.p.exif?.camera" class="pw-caption-sub">{{ cell.p.exif.camera }}</span>
+              </figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 非分组模式：单一作品墙 + 虚拟滚动 -->
     <div
       v-else
       ref="wrapEl"
@@ -372,6 +572,260 @@ function switchAlbum(key: string) {
   font-size: 11px;
   opacity: 0.75;
 }
+
+/* ------------------------------- 分组（一页一组） ------------------------------- */
+.pw-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.pw-group {
+  margin: 0;
+}
+
+/* 吸顶工具条：包裹标签条 + 上/下一组导航，整体吸顶避免重叠 */
+.pw-bar {
+  position: sticky;
+  top: var(--vp-nav-height);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--vp-c-bg);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+  backdrop-filter: blur(6px);
+}
+
+/* 组名标签条：点哪个标签显示哪组 */
+.pw-album-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pw-album-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--vp-c-text-2);
+  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.pw-album-tag:hover {
+  color: var(--vp-c-brand-1);
+  border-color: var(--vp-c-brand-1);
+}
+
+.pw-album-tag.active {
+  color: #fff;
+  background: var(--vp-c-brand-1);
+  border-color: var(--vp-c-brand-1);
+}
+
+.pw-album-tag-num {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+/* 上 / 下一组 导航 */
+.pw-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pw-pager-btn {
+  flex: none;
+  padding: 6px 14px;
+  font-size: 14px;
+  color: var(--vp-c-text-1);
+  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.pw-pager-btn:hover:not(:disabled) {
+  color: var(--vp-c-brand-1);
+  border-color: var(--vp-c-brand-1);
+}
+
+.pw-pager-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pw-pager-info {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  max-width: 70%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 15px;
+  font-family: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.pw-pager-info:hover {
+  background: var(--vp-c-bg-soft);
+}
+
+.pw-pager-info strong {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--vp-c-text-1);
+}
+
+.pw-pager-num {
+  font-size: 12px;
+  color: var(--vp-c-text-3);
+}
+
+.pw-pager-idx {
+  font-size: 12px;
+  color: var(--vp-c-text-2);
+}
+
+/* ------------------------------- 组选择器浮层 ------------------------------- */
+.pw-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.pw-picker {
+  width: min(860px, 92vw);
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--vp-c-bg);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.pw-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vp-c-text-1);
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.pw-picker-close {
+  width: 28px;
+  height: 28px;
+  font-size: 15px;
+  color: var(--vp-c-text-2);
+  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.pw-picker-close:hover {
+  color: var(--vp-c-brand-1);
+  border-color: var(--vp-c-brand-1);
+}
+
+.pw-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+  padding: 18px;
+  overflow-y: auto;
+}
+
+.pw-pick-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+  text-align: left;
+  background: var(--vp-c-bg-soft);
+  border: 2px solid transparent;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.15s ease;
+}
+
+.pw-pick-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--vp-c-brand-2);
+}
+
+.pw-pick-card.active {
+  border-color: var(--vp-c-brand-1);
+}
+
+.pw-pick-cover {
+  aspect-ratio: 4 / 3;
+  background: var(--vp-c-bg-alt);
+  overflow: hidden;
+}
+
+.pw-pick-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.pw-pick-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px 10px;
+}
+
+.pw-pick-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vp-c-text-1);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pw-pick-count {
+  flex: none;
+  font-size: 12px;
+  color: var(--vp-c-text-3);
+}
+
 
 /* -------------------------------- 作品墙 -------------------------------- */
 .pw-canvas {
@@ -495,17 +949,11 @@ function switchAlbum(key: string) {
 }
 </style>
 
-<!-- 影集页放宽正文容器（配合 frontmatter 的 pageClass: gallery-page） -->
+<!-- 作品墙：回到 VitePress 默认 home 布局（.VPHome .container 自带 max-width 与左右边距、居中）。
+     不再强制全宽铺满；这里仅给一个稳妥的居中上限，避免在非 home 场景里横向溢出。 -->
 <style>
-.gallery-page .VPDoc:not(.has-sidebar) .container {
-  max-width: 1440px;
-}
-
-.gallery-page .VPDoc:not(.has-sidebar) .content {
-  max-width: 100%;
-}
-
-.gallery-page .VPDoc .content-container {
-  max-width: 100%;
+.photo-wall {
+  max-width: 1280px;
+  margin: 0 auto;
 }
 </style>

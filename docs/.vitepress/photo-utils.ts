@@ -98,9 +98,10 @@ function readHeader(file: string, max = HEADER_BYTES): Buffer {
 /**
  * 把相对路径转成可直接访问的 URL（中文 / 空格需要转义）。
  * 拼接 SITE_BASE（如 /flog/），否则部署在二级目录时图片会 404。
+ * prefix 为站点下的一级目录名（photos / pic），用于区分不同图库。
  */
-function toUrl(rel: string): string {
-  return SITE_BASE + 'photos/' + rel.split('/').map(encodeURIComponent).join('/')
+function toUrl(rel: string, prefix = 'photos'): string {
+  return SITE_BASE + prefix + '/' + rel.split('/').map(encodeURIComponent).join('/')
 }
 
 /* -------------------------------------------------------------------------- */
@@ -390,19 +391,22 @@ function walk(dir: string, base = ''): string[] {
 
 /**
  * 扫描照片目录，产出作品墙所需的全部静态数据
+ *
+ * @param root      图片根目录（绝对路径），默认 docs/public/photos
+ * @param urlPrefix 站点下的一级目录名（photos / pic），用于拼访问 URL 与 LQIP key
  */
-export function loadGallery(): GalleryData {
-  if (!fs.existsSync(PHOTO_ROOT)) {
+export function loadGallery(root: string = PHOTO_ROOT, urlPrefix = 'photos'): GalleryData {
+  if (!fs.existsSync(root)) {
     return { photos: [], albums: [], total: 0, empty: true }
   }
 
-  const files = walk(PHOTO_ROOT)
+  const files = walk(root)
   const lqipMap = readJson<Record<string, string>>(LQIP_FILE) || {}
   const albumMetaCache = new Map<string, AlbumMeta>()
   const photos: PhotoItem[] = []
 
   for (const rel of files) {
-    const abs = path.join(PHOTO_ROOT, rel)
+    const abs = path.join(root, rel)
     const dir = path.posix.dirname(rel)
     const albumKey = dir === '.' ? 'default' : dir
     const fileName = path.posix.basename(rel)
@@ -410,8 +414,8 @@ export function loadGallery(): GalleryData {
     if (!albumMetaCache.has(albumKey)) {
       const metaFile =
         albumKey === 'default'
-          ? path.join(PHOTO_ROOT, 'album.json')
-          : path.join(PHOTO_ROOT, albumKey, 'album.json')
+          ? path.join(root, 'album.json')
+          : path.join(root, albumKey, 'album.json')
       albumMetaCache.set(albumKey, readJson<AlbumMeta>(metaFile) || {})
     }
     const meta = albumMetaCache.get(albumKey)!
@@ -443,7 +447,7 @@ export function loadGallery(): GalleryData {
     }
 
     const thumbAbs = path.join(
-      PHOTO_ROOT,
+      root,
       THUMB_DIR,
       dir === '.' ? '' : dir,
       fileName.replace(/\.[^.]+$/, '.webp')
@@ -455,10 +459,10 @@ export function loadGallery(): GalleryData {
     const baseName = fileName.replace(/\.[^.]+$/, '')
 
     photos.push({
-      id: rel,
-      src: toUrl(rel),
-      thumb: hasThumb ? toUrl(thumbRel) : toUrl(rel),
-      lqip: lqipMap[rel],
+      id: `${urlPrefix}/${rel}`,
+      src: toUrl(rel, urlPrefix),
+      thumb: hasThumb ? toUrl(thumbRel, urlPrefix) : toUrl(rel, urlPrefix),
+      lqip: lqipMap[`${urlPrefix}/${rel}`],
       width,
       height,
       ratio: Number((width / Math.max(height, 1)).toFixed(4)),

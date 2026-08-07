@@ -3,7 +3,7 @@ title: 影集
 description: 摄影作品墙 —— 记录光影里的日常
 sidebar: false
 outline: false
-pageClass: gallery-page
+# pageClass: gallery-page
 layout: home
 ---
 
@@ -13,13 +13,15 @@ import PhotoWall from './.vitepress/theme/components/PhotoWall.vue'
 
 # 影集
 
-<p style="color: var(--vp-c-text-2); margin-top: -8px;">
+<!-- <p style="color: var(--vp-c-text-2); margin-top: -8px;">
 按下 <kbd>←</kbd> <kbd>→</kbd> 翻页，<kbd>Esc</kbd> 关闭，滚轮或双击可放大。
-</p>
+</p> -->
+
+按下 ← →  翻页，Esc  关闭，滚轮或双击可放大
 
 <PhotoWall />
 
-::: details 怎么往墙上加照片？
+<!-- ::: details 怎么往墙上加照片？
 1. 把照片丢进 `docs/public/photos/`，刷新即可看到；
 2. 想分相册就建子目录，例如 `docs/public/photos/2026-西藏/`，目录名会变成筛选标签；
 3. 想自定义相册名 / 单张照片标题，在相册目录里放一个 `album.json`：
@@ -47,4 +49,4 @@ npm run photos:thumb
 
 > 照片的宽高、拍摄参数（相机 / 光圈 / 快门 / ISO）都在构建期从文件里读好了，
 > 页面运行时不需要解析图片，也就不会卡。
-:::
+::: -->
