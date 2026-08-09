@@ -207,6 +207,27 @@ const MermaidEnhancer = defineAsyncComponent(
 
 <!-- 全站滚动细化：细滚动条 + 平滑滚动 -->
 <style>
+/* 首页「最新文章」：轮播浮动在列表右侧，列表保持原 markdown 样式 */
+.recent-carousel {
+  float: right;
+  width: 340px;
+  max-width: 42%;
+  margin: 4px 80px 20px 28px;
+}
+
+.recent-clear {
+  clear: both;
+}
+
+@media (max-width: 860px) {
+  .recent-carousel {
+    float: none;
+    width: 100%;
+    max-width: 420px;
+    margin: 16px 0;
+  }
+}
+
 html {
   scroll-behavior: smooth;
 }

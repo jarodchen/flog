@@ -86,9 +86,9 @@ export { generateBlogSidebar }
 export function updateBlogIndexPage() {
   try {
     const posts = getBlogPostsMetadata()
-    
+
     // 按年份分组
-    const postsByYear = {}
+    const postsByYear: Record<string, typeof posts> = {}
     posts.forEach(post => {
       if (!postsByYear[post.year]) {
         postsByYear[post.year] = []
@@ -96,10 +96,9 @@ export function updateBlogIndexPage() {
       postsByYear[post.year].push(post)
     })
 
-    // 获取最新的文章（最多显示最近一年的最新 5 篇）
+    // 获取最新年份，取该年最近 5 篇
     const latestYear = Object.keys(postsByYear).sort((a, b) => parseInt(b) - parseInt(a))[0]
     const recentPosts = postsByYear[latestYear] || []
-    
     // 限制首页只显示最新 5 篇文章
     const displayPosts = recentPosts.slice(0, 5)
     const hasMorePosts = recentPosts.length > 5
@@ -114,14 +113,17 @@ hero:
 ---
 
 
-
 # 最新文章 {#recent}
+
+<div class="recent-carousel">
+<HomeCarousel :count="3" />
+</div>
 
 `
 
     if (displayPosts.length > 0) {
       content += `### ${latestYear} 年（${recentPosts.length} 篇，显示最新 ${displayPosts.length} 篇）\n\n`
-      
+
       displayPosts.forEach(post => {
         content += `- [${post.title}](${post.link})`
         if (post.date) {
@@ -139,11 +141,12 @@ hero:
       content += '*暂无文章*\n\n'
     }
 
-    content += `---
-
-
+    content += `<div class="recent-clear"></div>
 
 ---
+
+---
+
 # 文章分类 {#categories}
 
 <div class="cat-grid">
