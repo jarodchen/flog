@@ -199,7 +199,7 @@ export function updateCategoryPage(category: string) {
       date: post.date || '',
       description: post.description || '',
       tags: post.tags || [],
-      banner: post.banner ? SITE_BASE + post.banner.replace(/^\//, '') : '',
+      banner: post.banner ? SITE_BASE + post.banner.replace(/^\//, '') : SITE_BASE + 'images/placeholder.webp',
       link: SITE_BASE + post.link.replace(/^\//, '')
     }))
     const postsJson = JSON.stringify(postsData)
@@ -223,6 +223,8 @@ const posts = ${postsJson}
 </script>
 
 <div class="category-posts">
+  <CategoryHeroCarousel :posts="posts" :count="5" :interval="5000" />
+
   <a v-for="post in posts" :key="post.link" class="card" :href="post.link">
     <span class="card-thumb">
       <img :src="post.banner || '${SITE_BASE}images/placeholder.webp'" :alt="post.title" loading="lazy" />
