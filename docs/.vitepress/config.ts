@@ -12,7 +12,7 @@ updateArchivesPage()
 
 // RSS 配置
 const rssOptions = {
-  title: "白日梦想家",
+  title: "局外人",
   // VitePress 的 base('/flog/') 会被 RSS 插件自动拼到 URL 前，
   // 这里只写站点根域名，否则会出现 /flog/flog/ 重复路径。
   baseUrl: "https://jarodchen.github.io",
@@ -24,7 +24,7 @@ export default withMermaid(defineConfig({
   // 否则所有 JS/CSS/图片资源都会请求到根目录而 404。
   base: SITE_BASE,
 
-  title: "白日梦想家",
+  title: "局外人",
   description: '技术学习历程、项目实践和知识分享',
 
   // Mermaid 图表配置（流程图、时序图、类图等）

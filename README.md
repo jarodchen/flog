@@ -1,6 +1,6 @@
 # flog
 
-> 白日梦想家 —— 基于 [VitePress](https://vitepress.dev/) 构建的个人博客与摄影影集站点。
+> 局外人 —— 基于 [VitePress](https://vitepress.dev/) 构建的个人博客与摄影影集站点。
 
 [![Deploy](https://github.com/jarodchen/flog/actions/workflows/deploy.yml/badge.svg)](https://github.com/jarodchen/flog/actions/workflows/deploy.yml)
 [![Checks](https://github.com/jarodchen/flog/actions/workflows/ci.yml/badge.svg)](https://github.com/jarodchen/flog/actions/workflows/ci.yml)

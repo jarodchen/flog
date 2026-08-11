@@ -305,16 +305,20 @@ onBeforeUnmount(stop)
 }
 
 .tag {
-  font-size: 11px;
-  color: var(--vp-c-text-3);
-  background: var(--vp-c-bg-alt);
-  padding: 1px 6px;
-  border-radius: 3px;
+  color: var(--vp-c-brand);
+  background: var(--vp-c-brand-soft);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
 }
 
 .chc-arrow {
   position: absolute;
-  top: 80px;
+  /* top: 80px;
+  transform: translateY(-50%); */
+  top: 146px;
+  bottom: 0;
+  /* margin-block: auto; */
   transform: translateY(-50%);
   width: 28px;
   height: 28px;

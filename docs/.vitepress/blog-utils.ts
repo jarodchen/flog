@@ -108,8 +108,8 @@ layout: home
 title: 博客
 description: 技术分享与学习心得
 hero:
-  name: 白日梦想家
-  tagline: 仰望星空，低头滚粪，不掩饰无能，不停止嘲笑
+  name: 局外人
+  tagline: 身在局内，心在局外，不装，不演，不厌
 ---
 
 

@@ -10,7 +10,7 @@
  * 5. 动效只用 transform / opacity，不触发 layout；
  * 6. 有缩略图用缩略图（_thumbs），有 LQIP 用模糊占位，视觉上「秒开」。
  */
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { data as photosData } from '../photos.data'
 import type { GalleryData, PhotoItem } from '../photos.data'
 import PhotoLightbox from './PhotoLightbox.vue'
@@ -299,6 +299,46 @@ onBeforeUnmount(() => {
   if (frame) cancelAnimationFrame(frame)
 })
 
+/* ------------------------------ 首位轮播 ------------------------------- */
+/** 网格第一个格子改为轮播：在当前列表最近的 N 张之间自动切换 */
+const HERO_COUNT = 5
+/** 当前列表首张的 id —— 用来标记「第一个格子」 */
+const firstId = computed(() => photos.value[0]?.id)
+/** 轮播所用的照片集合（最近 HERO_COUNT 张） */
+const heroPhotos = computed(() => photos.value.slice(0, HERO_COUNT))
+const heroIdx = ref(0)
+let heroTimer: ReturnType<typeof setInterval> | null = null
+
+function heroGo(i: number) {
+  const n = heroPhotos.value.length
+  if (!n) return
+  heroIdx.value = (i + n) % n
+}
+function heroStart() {
+  stopHero()
+  if (HERO_COUNT > 1 && heroPhotos.value.length > 1) {
+    heroTimer = setInterval(() => heroGo(heroIdx.value + 1), 4000)
+  }
+}
+function stopHero() {
+  if (heroTimer) {
+    clearInterval(heroTimer)
+    heroTimer = null
+  }
+}
+/** 点击 / 回车打开当前轮播到的那张 */
+function openHero() {
+  const p = heroPhotos.value[heroIdx.value]
+  if (p) openViewer(p)
+}
+
+watch(activeAlbum, () => {
+  heroIdx.value = 0
+  heroStart()
+})
+onMounted(() => heroStart())
+onBeforeUnmount(stopHero)
+
 /* -------------------------------- 大图查看 ------------------------------- */
 
 const viewerIndex = ref(-1)
@@ -454,29 +494,76 @@ function onKeydown(e: KeyboardEvent) {
               v-for="cell in row.cells"
               :key="cell.p.id"
               class="pw-cell"
+              :class="{ 'pw-cell--hero': cell.p.id === firstId }"
               :style="cellStyle(row, cell)"
               role="button"
               tabindex="0"
               :aria-label="cell.p.title"
-              @click="openViewer(cell.p)"
-              @keydown.enter.prevent="openViewer(cell.p)"
+              @click="cell.p.id === firstId ? openHero() : openViewer(cell.p)"
+              @keydown.enter.prevent="cell.p.id === firstId ? openHero() : openViewer(cell.p)"
+              @mouseenter="cell.p.id === firstId && stopHero()"
+              @mouseleave="cell.p.id === firstId && heroStart()"
             >
-              <img
-                class="pw-img"
-                :class="{ 'is-loaded': loaded.has(cell.p.id) }"
-                :src="cell.p.thumb"
-                :alt="cell.p.title"
-                :width="cell.p.width"
-                :height="cell.p.height"
-                loading="lazy"
-                decoding="async"
-                @load="onImgLoad(cell.p.id)"
-                @error="onImgLoad(cell.p.id)"
-              />
-              <figcaption class="pw-caption">
-                <span class="pw-caption-title">{{ cell.p.title }}</span>
-                <span v-if="cell.p.exif?.camera" class="pw-caption-sub">{{ cell.p.exif.camera }}</span>
-              </figcaption>
+              <template v-if="cell.p.id === firstId">
+                <div class="pw-hero">
+                  <img
+                    v-for="(hp, hi) in heroPhotos"
+                    :key="hp.id"
+                    class="pw-hero-img"
+                    :class="{ active: hi === heroIdx }"
+                    :src="hp.thumb"
+                    :alt="hp.title"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <div class="pw-hero-cap">
+                    <span class="pw-hero-title">{{ heroPhotos[heroIdx]?.title }}</span>
+                  </div>
+                  <div v-if="heroPhotos.length > 1" class="pw-hero-dots">
+                    <button
+                      v-for="(hp, hi) in heroPhotos"
+                      :key="hp.id"
+                      class="pw-hero-dot"
+                      type="button"
+                      :class="{ active: hi === heroIdx }"
+                      :aria-label="`第 ${hi + 1} 张`"
+                      @click.stop.prevent="heroGo(hi)"
+                    />
+                  </div>
+                  <button
+                    v-if="heroPhotos.length > 1"
+                    class="pw-hero-arrow pw-hero-prev"
+                    type="button"
+                    aria-label="上一张"
+                    @click.stop.prevent="heroGo(heroIdx - 1)"
+                  >‹</button>
+                  <button
+                    v-if="heroPhotos.length > 1"
+                    class="pw-hero-arrow pw-hero-next"
+                    type="button"
+                    aria-label="下一张"
+                    @click.stop.prevent="heroGo(heroIdx + 1)"
+                  >›</button>
+                </div>
+              </template>
+              <template v-else>
+                <img
+                  class="pw-img"
+                  :class="{ 'is-loaded': loaded.has(cell.p.id) }"
+                  :src="cell.p.thumb"
+                  :alt="cell.p.title"
+                  :width="cell.p.width"
+                  :height="cell.p.height"
+                  loading="lazy"
+                  decoding="async"
+                  @load="onImgLoad(cell.p.id)"
+                  @error="onImgLoad(cell.p.id)"
+                />
+                <figcaption class="pw-caption">
+                  <span class="pw-caption-title">{{ cell.p.title }}</span>
+                  <span v-if="cell.p.exif?.camera" class="pw-caption-sub">{{ cell.p.exif.camera }}</span>
+                </figcaption>
+              </template>
             </figure>
           </div>
         </div>
@@ -496,29 +583,76 @@ function onKeydown(e: KeyboardEvent) {
           v-for="cell in row.cells"
           :key="cell.p.id"
           class="pw-cell"
+          :class="{ 'pw-cell--hero': cell.p.id === firstId }"
           :style="cellStyle(row, cell)"
           role="button"
           tabindex="0"
           :aria-label="cell.p.title"
-          @click="openViewer(cell.p)"
-          @keydown.enter.prevent="openViewer(cell.p)"
+          @click="cell.p.id === firstId ? openHero() : openViewer(cell.p)"
+          @keydown.enter.prevent="cell.p.id === firstId ? openHero() : openViewer(cell.p)"
+          @mouseenter="cell.p.id === firstId && stopHero()"
+          @mouseleave="cell.p.id === firstId && heroStart()"
         >
-          <img
-            class="pw-img"
-            :class="{ 'is-loaded': loaded.has(cell.p.id) }"
-            :src="cell.p.thumb"
-            :alt="cell.p.title"
-            :width="cell.p.width"
-            :height="cell.p.height"
-            loading="lazy"
-            decoding="async"
-            @load="onImgLoad(cell.p.id)"
-            @error="onImgLoad(cell.p.id)"
-          />
-          <figcaption class="pw-caption">
-            <span class="pw-caption-title">{{ cell.p.title }}</span>
-            <span v-if="cell.p.exif?.camera" class="pw-caption-sub">{{ cell.p.exif.camera }}</span>
-          </figcaption>
+          <template v-if="cell.p.id === firstId">
+            <div class="pw-hero">
+              <img
+                v-for="(hp, hi) in heroPhotos"
+                :key="hp.id"
+                class="pw-hero-img"
+                :class="{ active: hi === heroIdx }"
+                :src="hp.thumb"
+                :alt="hp.title"
+                loading="lazy"
+                decoding="async"
+              />
+              <div class="pw-hero-cap">
+                <span class="pw-hero-title">{{ heroPhotos[heroIdx]?.title }}</span>
+              </div>
+              <div v-if="heroPhotos.length > 1" class="pw-hero-dots">
+                <button
+                  v-for="(hp, hi) in heroPhotos"
+                  :key="hp.id"
+                  class="pw-hero-dot"
+                  type="button"
+                  :class="{ active: hi === heroIdx }"
+                  :aria-label="`第 ${hi + 1} 张`"
+                  @click.stop.prevent="heroGo(hi)"
+                />
+              </div>
+              <button
+                v-if="heroPhotos.length > 1"
+                class="pw-hero-arrow pw-hero-prev"
+                type="button"
+                aria-label="上一张"
+                @click.stop.prevent="heroGo(heroIdx - 1)"
+              >‹</button>
+              <button
+                v-if="heroPhotos.length > 1"
+                class="pw-hero-arrow pw-hero-next"
+                type="button"
+                aria-label="下一张"
+                @click.stop.prevent="heroGo(heroIdx + 1)"
+              >›</button>
+            </div>
+          </template>
+          <template v-else>
+            <img
+              class="pw-img"
+              :class="{ 'is-loaded': loaded.has(cell.p.id) }"
+              :src="cell.p.thumb"
+              :alt="cell.p.title"
+              :width="cell.p.width"
+              :height="cell.p.height"
+              loading="lazy"
+              decoding="async"
+              @load="onImgLoad(cell.p.id)"
+              @error="onImgLoad(cell.p.id)"
+            />
+            <figcaption class="pw-caption">
+              <span class="pw-caption-title">{{ cell.p.title }}</span>
+              <span v-if="cell.p.exif?.camera" class="pw-caption-sub">{{ cell.p.exif.camera }}</span>
+            </figcaption>
+          </template>
         </figure>
       </div>
     </div>
@@ -914,6 +1048,119 @@ function onKeydown(e: KeyboardEvent) {
 .pw-caption-sub {
   font-size: 11px;
   opacity: 0.8;
+}
+
+/* ------------------------------ 首位轮播格 ------------------------------ */
+.pw-cell--hero {
+  cursor: pointer;
+}
+
+.pw-hero {
+  position: absolute;
+  inset: 0;
+}
+
+.pw-hero-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transform: scale(1.02);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.pw-hero-img.active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.pw-hero-cap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 22px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.5;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.68), rgba(0, 0, 0, 0));
+  pointer-events: none;
+}
+
+.pw-hero-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.pw-hero-dots {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 6px;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  z-index: 2;
+}
+
+.pw-hero-dot {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.pw-hero-dot.active {
+  background: #fff;
+  transform: scale(1.3);
+}
+
+.pw-hero-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.35);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease, background-color 0.2s ease;
+  z-index: 2;
+}
+
+.pw-cell--hero:hover .pw-hero-arrow {
+  opacity: 1;
+}
+
+.pw-hero-arrow:hover {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.pw-hero-prev {
+  left: 6px;
+}
+
+.pw-hero-next {
+  right: 6px;
 }
 
 /* -------------------------------- 空状态 -------------------------------- */
