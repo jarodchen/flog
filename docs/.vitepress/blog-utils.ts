@@ -109,7 +109,7 @@ title: 博客
 description: 技术分享与学习心得
 hero:
   name: 局外人
-  tagline: 身在局内，心在局外，不装，不演，不厌
+  tagline: 身在局内，心在局外，莫向外求，不装，不演，不厌
 ---
 
 
