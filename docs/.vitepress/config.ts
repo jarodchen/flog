@@ -4,11 +4,14 @@ import { generateBlogSidebar, updateArchivesPage, updateBlogIndexPage } from './
 import { RssPlugin } from 'vitepress-plugin-rss'
 import { BiDirectionalLinks } from '@nolebase/markdown-it-bi-directional-links' // [!code ++]
 import { SITE_BASE } from './base'
+import { updateVaultGraphData } from './graph-generator'
 
 
 // 启动时自动生成博客首页和归档页面（仅执行一次）
 updateBlogIndexPage()
 updateArchivesPage()
+// 关系图谱数据（/graph 页面消费，写入 docs/public/vault-data.json）
+updateVaultGraphData()
 
 // RSS 配置
 const rssOptions = {
@@ -37,6 +40,7 @@ export default withMermaid(defineConfig({
     nav: [
       { text: '首页', link: '/' },
       { text: '博客', link: '/blog/categories/' },
+      { text: '图谱', link: '/graph' },
       { text: '影集', link: '/yingji' },
       { text: '图库', link: '/tuku' },
       { text: '技术博客', link: 'https://jarodchen.github.io/', target: '_blank' },
@@ -52,6 +56,7 @@ export default withMermaid(defineConfig({
             { text: '博客', link: '/blog/categories/' },
             { text: '影集', link: '/yingji' },
             { text: '图库', link: '/tuku' },
+            { text: '关系图谱', link: '/graph' },
             { text: '技术博客', link: 'https://jarodchen.github.io/', target: '_blank' },
             { text: '关于我', link: '/about' }
           ]
@@ -115,7 +120,13 @@ export default withMermaid(defineConfig({
   ],
   
   vite: {
-    plugins: [RssPlugin(rssOptions)]
+    plugins: [RssPlugin(rssOptions)],
+    optimizeDeps: {
+      // 关系图谱组件（GraphView / VaultGraph）依赖 d3。
+      // 这些包只有打开 /graph 时才会被浏览器请求到，Vite 首次发现时会中途
+      // 重新预打包并强制整页刷新，报 MIME 错误。提前声明，启动即预打包。
+      include: ['d3-selection', 'd3-force', 'd3-zoom', 'd3-drag']
+    }
   }
 }))
 
