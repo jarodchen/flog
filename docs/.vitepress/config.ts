@@ -1,6 +1,6 @@
 import { defineConfig } from 'vitepress'
 import { withMermaid } from 'vitepress-plugin-mermaid'
-import { generateBlogSidebar, updateArchivesPage, updateBlogIndexPage } from './blog-utils'
+import { generateBlogSidebar, updateArchivesPage, updateBlogIndexPage, getBlogRewrites } from './blog-utils'
 import { RssPlugin } from 'vitepress-plugin-rss'
 import { BiDirectionalLinks } from '@nolebase/markdown-it-bi-directional-links' // [!code ++]
 import { SITE_BASE } from './base'
@@ -29,6 +29,9 @@ export default withMermaid(defineConfig({
 
   title: "局外人",
   description: '技术学习历程、项目实践和知识分享',
+
+  // 自定义 slug 友好 URL：让 /blog/<slug> 可达（见 sidebar-generator 的 getBlogRewrites）
+  rewrites: getBlogRewrites(),
 
   // Mermaid 图表配置（流程图、时序图、类图等）
   mermaid: {

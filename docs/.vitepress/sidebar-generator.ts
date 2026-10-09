@@ -16,6 +16,7 @@ interface BlogPostMetadata {
   year: string
   filename: string
   link: string
+  slug?: string | null
   title: string
   date: string | null
   tags: string[]
@@ -183,6 +184,8 @@ export function getBlogPostsMetadata(): BlogPostMetadata[] {
       const relPath = path.relative(blogDir, filePath)
         .replace(/\\/g, '/')
         .replace(/\.md$/, '')
+      // 自定义 slug（友好 URL）；无 slug 时回退到真实路径
+      const slug = extractSlug(content)
 
       // 年份推导：优先 frontmatter 的 date；否则路径中的 4 位年份段
       const date = extractDate(content)
@@ -201,7 +204,8 @@ export function getBlogPostsMetadata(): BlogPostMetadata[] {
       const metadata = {
         year,
         filename: file,
-        link: `/blog/${relPath}`,
+        link: `/${slug ? `blog/${slug}` : `blog/${relPath}`}`,
+        slug: slug ?? null,
         title: extractTitle(content, file),
         date,
         tags: extractTags(content),
@@ -309,6 +313,22 @@ function extractBanner(content) {
 }
 
 /**
+ * 从 frontmatter 提取 slug（自定义 URL 片段）
+ * 兼容带引号 / 不带引号、行尾空格、前后多余斜杠与 .md/.html 后缀
+ */
+function extractSlug(content: string): string | null {
+  const fm = content.match(/^---\r?\n([\s\S]*?)\r?\n---[ \t]*(\r?\n|$)/)
+  if (!fm) return null
+  const m = fm[1].match(/^slug:\s*(.+?)\s*$/m)
+  if (!m) return null
+  return m[1]
+    .replace(/['"]/g, '')
+    .trim()
+    .replace(/^\/+/, '')
+    .replace(/\.(md|html)$/i, '')
+}
+
+/**
  * 获取所有标签及其文章数
  */
 export function getAllTags(): Record<string, number> {
@@ -322,4 +342,47 @@ export function getAllTags(): Record<string, number> {
   })
 
   return tags
+}
+
+/**
+ * 构建 VitePress rewrites 映射：把真实文件路径路由改写为 frontmatter 的 slug。
+ * 仅对配置了 slug 的笔记生效；无 slug 的笔记不出现在映射里（沿用原路径）。
+ * from / to 均为相对 srcDir（docs）的路径，且都要带 .md 扩展名、to 无前导斜杠
+ * （见 VitePress 官方 Routing 指南示例）。
+ */
+export function getBlogRewrites(): Record<string, string> {
+  const blogDir = path.resolve(__dirname, '../blog')
+  const rewrites: Record<string, string> = {}
+  if (!fs.existsSync(blogDir)) return rewrites
+
+  const excluded = new Set(['archives.md', 'rss.md', 'README.md'])
+  const seen = new Map<string, string>()
+  const files = walkMarkdownFiles(blogDir)
+
+  for (const filePath of files) {
+    const file = path.basename(filePath)
+    if (excluded.has(file)) continue
+
+    const content = fs.readFileSync(filePath, 'utf-8')
+    const slug = extractSlug(content)
+    if (!slug) continue
+
+    const relPath = path
+      .relative(blogDir, filePath)
+      .replace(/\\/g, '/')
+      .replace(/\.md$/, '')
+    const from = `blog/${relPath}.md`
+    const to = `blog/${slug}.md`
+    if (from === to) continue
+
+    if (seen.has(to)) {
+      console.warn(
+        `[slug] 冲突：多篇笔记使用了相同 slug "${slug}"（${seen.get(to)} 与 ${from}），后写覆盖前写`
+      )
+    }
+    seen.set(to, from)
+    rewrites[from] = to
+  }
+
+  return rewrites
 }

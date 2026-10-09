@@ -1,5 +1,5 @@
 // VitePress 配置扩展 - 自动更新博客侧边栏和归档页
-import { generateBlogSidebar, getBlogPostsMetadata } from './sidebar-generator'
+import { generateBlogSidebar, getBlogPostsMetadata, getBlogRewrites } from './sidebar-generator'
 import { SITE_BASE } from './base'
 import { updateAllCategoryPages } from './category-generator'
 import { updateAllTagPages } from './tag-generator'
@@ -77,7 +77,7 @@ if (isDevMode) {
 }
 
 // 重新导出函数供 config.ts 使用
-export { generateBlogSidebar }
+export { generateBlogSidebar, getBlogRewrites }
 
 /**
  * 生成博客首页内容

@@ -55,6 +55,7 @@ const CAT_MIN_COUNT = 2
 interface Frontmatter {
   title?: string
   date?: string
+  slug?: string
   tags: string[]
   categories: string[]
 }
@@ -129,6 +130,7 @@ function parseFrontmatter(content: string): { data: Frontmatter; body: string } 
 
     if (key === 'title') data.title = unquote(value)
     else if (key === 'date') data.date = unquote(value)
+    else if (key === 'slug') data.slug = unquote(value)
     else if (key === 'tags') data.tags.push(...parseInlineList(value))
     else if (key === 'category') data.categories.push(unquote(value))
     else if (key === 'categories') data.categories.push(...parseInlineList(value))
@@ -180,9 +182,10 @@ function collectMarkdownFiles(dir: string, relBase = ''): string[] {
   return results
 }
 
-/** 相对路径 → VitePress 路由（cleanUrls 未开启，产物为 .html） */
-function toUrl(relPath: string): string {
-  return '/' + relPath.replace(/\.md$/, '.html')
+/** 相对路径 → VitePress 路由（cleanUrls 未开启，产物为 .html）；有 slug 时改用 slug */
+function toUrl(relPath: string, slug?: string): string {
+  const route = slug ? `blog/${slug}` : relPath.replace(/\.md$/, '')
+  return '/' + route + '.html'
 }
 
 function isExternal(href: string): boolean {
@@ -324,11 +327,14 @@ export function updateVaultGraphData() {
       const content = fs.readFileSync(absPath, 'utf-8')
       const { data, body } = parseFrontmatter(content)
 
+      const slug = data.slug
+        ? data.slug.replace(/^\/+/, '').replace(/\.(md|html)$/i, '')
+        : undefined
       const title = data.title || extractH1(body) || path.basename(relPath, '.md')
       const node: GraphNode = {
         id: relPath,
         title,
-        url: toUrl(relPath),
+        url: toUrl(relPath, slug),
         kind: 'note',
         count: 0,
         tags: [...new Set(data.tags)].filter(Boolean),
