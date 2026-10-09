@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { SECTIONS } from './sections'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -21,22 +22,26 @@ const docsDir = path.resolve(__dirname, '..')
 const outputFile = path.join(docsDir, 'public', 'vault-data.json')
 
 /** 不参与图谱的自动生成页面（相对 docs/，POSIX 风格） */
-// flog 站点的内容页 = docs/blog/2026/ 下的博客文章。
+// flog 站点的内容页 = docs/<板块>/ 下的文章（板块见 sections.ts）。
 // about / tuku / yingji 是图库 / 影集等画廊页，不含知识关联，排除出图谱；
-// 自动生成的标签 / 分类索引页也排除（否则会成为无意义的「笔记」节点）。
+// 各板块自动生成的首页 / 归档 / 标签 / 分类索引页也排除（否则会成为无意义的「笔记」节点）。
 const EXCLUDED_FILES = new Set([
   'index.md',
-  'blog/index.md',
-  'blog/archives.md',
   'graph.md',
   'about.md',
   'tuku.md',
   'yingji.md',
+  // 每个板块自动生成的首页与归档页
+  ...SECTIONS.flatMap(section => [`${section.key}/index.md`, `${section.key}/archives.md`]),
 ])
 
 /** 不参与扫描的目录（相对 docs/，POSIX 风格） */
-// flog 的标签 / 分类索引页位于 docs/blog/tags、docs/blog/categories
-const EXCLUDED_DIRS = new Set(['.vitepress', 'public', 'blog/tags', 'blog/categories'])
+// 各板块的标签 / 分类索引页位于 docs/<板块>/tags、docs/<板块>/categories
+const EXCLUDED_DIRS = new Set([
+  '.vitepress',
+  'public',
+  ...SECTIONS.flatMap(section => [`${section.key}/tags`, `${section.key}/categories`]),
+])
 
 /**
  * 图谱采用**二分图**模型：节点 = 笔记 + 标签 + 分类，边 = 「归属」关系
@@ -166,7 +171,7 @@ function collectMarkdownFiles(dir: string, relBase = ''): string[] {
     const relPath = relBase ? `${relBase}/${entry.name}` : entry.name
 
     if (entry.isDirectory()) {
-      // flog 的标签 / 分类索引页在 blog/tags、blog/categories 子目录下，
+      // 各板块的标签 / 分类索引页在 <板块>/tags、<板块>/categories 子目录下，
       // 这里要按「相对路径」排除（EXCLUDED_DIRS 里写的是 'blog/tags' 而非 'tags'）
       if (EXCLUDED_DIRS.has(entry.name) || EXCLUDED_DIRS.has(relPath)) continue
       results.push(...collectMarkdownFiles(path.join(dir, entry.name), relPath))
@@ -184,7 +189,11 @@ function collectMarkdownFiles(dir: string, relBase = ''): string[] {
 
 /** 相对路径 → VitePress 路由（cleanUrls 未开启，产物为 .html）；有 slug 时改用 slug */
 function toUrl(relPath: string, slug?: string): string {
-  const route = slug ? `blog/${slug}` : relPath.replace(/\.md$/, '')
+  const posix = relPath.replace(/\\/g, '/')
+  // slug 是板块内唯一的，需要拼回它所属的板块目录
+  const firstSegment = posix.split('/')[0]
+  const sectionKey = SECTIONS.find(section => section.key === firstSegment)?.key
+  const route = slug && sectionKey ? `${sectionKey}/${slug}` : posix.replace(/\.md$/, '')
   return '/' + route + '.html'
 }
 

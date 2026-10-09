@@ -1,15 +1,16 @@
 import { defineConfig } from 'vitepress'
 import { withMermaid } from 'vitepress-plugin-mermaid'
-import { generateBlogSidebar, updateArchivesPage, updateBlogIndexPage, getBlogRewrites } from './blog-utils'
+import { generateAllSidebars, getAllRewrites } from './sidebar-generator'
+import { regenerateAll } from './content-utils'
 import { RssPlugin } from 'vitepress-plugin-rss'
 import { BiDirectionalLinks } from '@nolebase/markdown-it-bi-directional-links' // [!code ++]
 import { SITE_BASE } from './base'
 import { updateVaultGraphData } from './graph-generator'
+import { SECTIONS, BLOG_SECTION, STUDY_SECTIONS, sectionUrl } from './sections'
 
 
-// 启动时自动生成博客首页和归档页面（仅执行一次）
-updateBlogIndexPage()
-updateArchivesPage()
+// 启动时自动生成各板块（随笔 / 英语 / 经济 / 法律）的首页、归档、分类、标签，以及站点首页
+regenerateAll()
 // 关系图谱数据（/graph 页面消费，写入 docs/public/vault-data.json）
 updateVaultGraphData()
 
@@ -30,8 +31,8 @@ export default withMermaid(defineConfig({
   title: "局外人",
   description: '技术学习历程、项目实践和知识分享',
 
-  // 自定义 slug 友好 URL：让 /blog/<slug> 可达（见 sidebar-generator 的 getBlogRewrites）
-  rewrites: getBlogRewrites(),
+  // 自定义 slug 友好 URL：让 /<板块>/<slug> 可达（见 sidebar-generator 的 getAllRewrites）
+  rewrites: getAllRewrites(),
 
   // Mermaid 图表配置（流程图、时序图、类图等）
   mermaid: {
@@ -42,7 +43,14 @@ export default withMermaid(defineConfig({
   themeConfig: {
     nav: [
       { text: '首页', link: '/' },
-      { text: '博客', link: '/blog/categories/' },
+      { text: `${BLOG_SECTION.emoji} 随笔`, link: `/${BLOG_SECTION.key}/` },
+      {
+        text: '学习',
+        items: STUDY_SECTIONS.map(section => ({
+          text: `${section.emoji} ${section.name}`,
+          link: `/${section.key}/`,
+        })),
+      },
       { text: '图谱', link: '/graph' },
       { text: '影集', link: '/yingji' },
       { text: '图库', link: '/tuku' },
@@ -56,7 +64,11 @@ export default withMermaid(defineConfig({
           text: '概览',
           items: [
             { text: '首页', link: '/' },
-            { text: '博客', link: '/blog/categories/' },
+            { text: `${BLOG_SECTION.emoji} 随笔`, link: `/${BLOG_SECTION.key}/` },
+            ...STUDY_SECTIONS.map(section => ({
+              text: `${section.emoji} ${section.name}`,
+              link: `/${section.key}/`,
+            })),
             { text: '影集', link: '/yingji' },
             { text: '图库', link: '/tuku' },
             { text: '关系图谱', link: '/graph' },
@@ -65,7 +77,8 @@ export default withMermaid(defineConfig({
           ]
         }
       ],
-      '/blog/': generateBlogSidebar()
+      // 各板块侧边栏由脚本按 sections.ts 自动生成：/blog/ /english/ /economics/ /law/
+      ...generateAllSidebars()
     },
     
     socialLinks: [

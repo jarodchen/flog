@@ -1,4 +1,5 @@
-import { getBlogPostsMetadata } from './sidebar-generator'
+import { getSectionPostsMetadata } from './sidebar-generator'
+import { SECTIONS } from './sections'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -7,10 +8,12 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 /**
- * 自动生成博客归档页面
+ * 自动生成【指定板块】的归档页面（按月分组的详细版）
+ * 注：默认归档页由 content-utils.ts 的 updateSectionArchivesPage 生成，
+ * 本文件保留一份按月分组的实现，可单独调用。
  */
-export function generateArchivesPage() {
-  const posts = getBlogPostsMetadata()
+export function generateArchivesPage(sectionKey: string) {
+  const posts = getSectionPostsMetadata(sectionKey)
   
   // 按年份分组
   const postsByYear: Record<string, typeof posts> = {}
@@ -121,14 +124,14 @@ description: 按时间顺序浏览所有技术文章
 `
 
   // 写入文件
-  const outputPath = path.resolve(__dirname, '../blog/archives.md')
+  const outputPath = path.resolve(__dirname, `../${sectionKey}/archives.md`)
   fs.writeFileSync(outputPath, content, 'utf-8')
   
   console.log(`✅ 归档页面已生成: ${outputPath}`)
   console.log(`   共 ${totalPosts} 篇文章`)
 }
 
-// 如果直接运行此脚本
+// 如果直接运行此脚本：为所有板块生成按月归档
 if (import.meta.url === `file://${process.argv[1]}`) {
-  generateArchivesPage()
+  SECTIONS.forEach(section => generateArchivesPage(section.key))
 }

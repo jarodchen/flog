@@ -99,3 +99,16 @@ docs/public/photos/_thumbs/
 .temp/
 docs/index.md
 docs/public/pic/_thumbs
+
+## VitePress 临时构建输出（如 `npx vitepress build --outDir out_tmp2`）
+docs/.vitepress/out_*/
+
+## 各板块自动生成的列表页（构建时由 generator 生成，无需入库）
+## 仅忽略生成物；板块下的原创文章（如 english/xxx.md）仍正常入库
+docs/[a-z]*/index.md
+docs/[a-z]*/archives.md
+docs/[a-z]*/categories/
+docs/[a-z]*/tags/
+
+## TypeScript 增量编译产物
+*.tsbuildinfo

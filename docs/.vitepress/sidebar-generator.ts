@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { SECTIONS } from './sections'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -12,7 +13,7 @@ interface SidebarItem {
   collapsed?: boolean
 }
 
-interface BlogPostMetadata {
+interface PostMetadata {
   year: string
   filename: string
   link: string
@@ -24,31 +25,30 @@ interface BlogPostMetadata {
   description: string | null
   banner: string | null
   categories: string[]
+  /** 所属板块 key（blog / english / economics / law） */
+  section: string
 }
 
 /**
- * 自动生成博客侧边栏配置
- * 扫描 blog 目录下的所有文章，按年份组织
+ * 自动生成【单个板块】的侧边栏配置
+ * 扫描 docs/<sectionKey>/ 下的所有文章，按分类 + 年份组织
  */
-export function generateBlogSidebar(): SidebarItem[] {
+export function generateSectionSidebar(sectionKey: string): SidebarItem[] {
   const sidebarItems: SidebarItem[] = []
+  const base = `/${sectionKey}/`
 
-
-  // 添加博客首页和归档页
+  // 添加板块首页、分类索引与标签索引
   sidebarItems.push({
-    // text: '博客',
     items: [
-      { text: '首页', link: '/blog/' },
-      // { text: '文章归档', link: '/blog/archives' },
-      { text: '分类索引', link: '/blog/categories/' },
-      { text: '标签索引', link: '/blog/tags/' },
-      // { text: 'RSS 订阅', link: '/blog/rss' }
+      { text: '板块首页', link: base },
+      { text: '分类索引', link: `${base}categories/` },
+      { text: '标签索引', link: `${base}tags/` },
     ]
   })
 
 
-  // 获取所有文章并按分类分组（合并单值 category 与数组 categories）
-  const posts = getBlogPostsMetadata()
+  // 获取该板块所有文章并按分类分组（合并单值 category 与数组 categories）
+  const posts = getSectionPostsMetadata(sectionKey)
   const postsByCategory: Record<string, typeof posts> = {}
   posts.forEach(post => {
     // 合并 category（单值）与 categories（数组），去重后作为该文章所属的全部分类
@@ -83,7 +83,7 @@ export function generateBlogSidebar(): SidebarItem[] {
   // 分组只做目录折叠，点击具体分类跳转到对应分类索引页（不在侧边栏展开文章标题）
   const categoryItems = categories.map(category => ({
     text: `${category}（${postsByCategory[category].length}）`,
-    link: `/blog/categories/${category.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '-')}`
+    link: `${base}categories/${category.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '-')}`
   }))
   if (categoryItems.length) {
     sidebarItems.push({
@@ -116,6 +116,18 @@ export function generateBlogSidebar(): SidebarItem[] {
     })
 
   return sidebarItems
+}
+
+/**
+ * 生成全站侧边栏映射：{ '/blog/': [...], '/english/': [...] }
+ * 供 config.ts 的 themeConfig.sidebar 直接展开使用
+ */
+export function generateAllSidebars(): Record<string, SidebarItem[]> {
+  const sidebars: Record<string, SidebarItem[]> = {}
+  SECTIONS.forEach(section => {
+    sidebars[`/${section.key}/`] = generateSectionSidebar(section.key)
+  })
+  return sidebars
 }
 
 /**
@@ -158,30 +170,30 @@ function walkMarkdownFiles(dir: string): string[] {
 }
 
 /**
- * 获取所有博客文章的元数据（用于生成首页 / 归档页 / 侧边栏等）
- * 递归扫描 blog/ 下的【所有】子文件夹（不再局限于 YYYY 年份目录），
+ * 获取【指定板块】所有文章的元数据（用于生成首页 / 归档页 / 侧边栏等）
+ * 递归扫描 docs/<sectionKey>/ 下的【所有】子文件夹（不再局限于 YYYY 年份目录），
  * 因此放在任意子目录下的文章都能被正确收集。
  *
- * - 链接：基于文件相对 blog 根目录的真实路径生成（保留完整子目录层级）
+ * - 链接：/<sectionKey>/<真实相对路径或 slug>（保留完整子目录层级）
  * - 年份：优先取 frontmatter 的 date，其次取路径中的 4 位年份段，都没有则为「未知」
  */
-export function getBlogPostsMetadata(): BlogPostMetadata[] {
-  const blogDir = path.resolve(__dirname, '../blog')
-  const posts: BlogPostMetadata[] = []
+export function getSectionPostsMetadata(sectionKey: string): PostMetadata[] {
+  const sectionDir = path.resolve(__dirname, '../' + sectionKey)
+  const posts: PostMetadata[] = []
 
   // 需要排除的非文章文件（自动生成或说明性文件）
   const excludedFiles = new Set(['archives.md', 'rss.md', 'README.md'])
 
-  if (fs.existsSync(blogDir)) {
-    const files = walkMarkdownFiles(blogDir)
+  if (fs.existsSync(sectionDir)) {
+    const files = walkMarkdownFiles(sectionDir)
 
     files.forEach(filePath => {
       const file = path.basename(filePath)
       if (excludedFiles.has(file)) return
 
       const content = fs.readFileSync(filePath, 'utf-8')
-      // 相对于 blog 根目录的真实路径，保留完整子目录层级（用于生成链接）
-      const relPath = path.relative(blogDir, filePath)
+      // 相对于板块根目录的真实路径，保留完整子目录层级（用于生成链接）
+      const relPath = path.relative(sectionDir, filePath)
         .replace(/\\/g, '/')
         .replace(/\.md$/, '')
       // 自定义 slug（友好 URL）；无 slug 时回退到真实路径
@@ -204,7 +216,7 @@ export function getBlogPostsMetadata(): BlogPostMetadata[] {
       const metadata = {
         year,
         filename: file,
-        link: `/${slug ? `blog/${slug}` : `blog/${relPath}`}`,
+        link: `/${sectionKey}/${slug || relPath}`,
         slug: slug ?? null,
         title: extractTitle(content, file),
         date,
@@ -212,7 +224,8 @@ export function getBlogPostsMetadata(): BlogPostMetadata[] {
         category: extractCategory(content),
         categories: extractCategories(content),
         description: extractDescription(content),
-        banner: extractBanner(content)
+        banner: extractBanner(content),
+        section: sectionKey
       }
 
       posts.push(metadata)
@@ -224,6 +237,17 @@ export function getBlogPostsMetadata(): BlogPostMetadata[] {
     if (!a.date || !b.date) return 0
     return new Date(b.date).getTime() - new Date(a.date).getTime()
   })
+}
+
+/**
+ * 收集全站所有板块的文章（按板块顺序拼接，板块内各自按日期降序）
+ */
+export function getAllPostsMetadata(): PostMetadata[] {
+  const all: PostMetadata[] = []
+  SECTIONS.forEach(section => {
+    all.push(...getSectionPostsMetadata(section.key))
+  })
+  return all
 }
 
 /**
@@ -329,10 +353,10 @@ function extractSlug(content: string): string | null {
 }
 
 /**
- * 获取所有标签及其文章数
+ * 获取【指定板块】所有标签及其文章数
  */
-export function getAllTags(): Record<string, number> {
-  const posts = getBlogPostsMetadata()
+export function getSectionTags(sectionKey: string): Record<string, number> {
+  const posts = getSectionPostsMetadata(sectionKey)
   const tags: Record<string, number> = {}
 
   posts.forEach(post => {
@@ -350,14 +374,14 @@ export function getAllTags(): Record<string, number> {
  * from / to 均为相对 srcDir（docs）的路径，且都要带 .md 扩展名、to 无前导斜杠
  * （见 VitePress 官方 Routing 指南示例）。
  */
-export function getBlogRewrites(): Record<string, string> {
-  const blogDir = path.resolve(__dirname, '../blog')
+export function getSectionRewrites(sectionKey: string): Record<string, string> {
+  const sectionDir = path.resolve(__dirname, '../' + sectionKey)
   const rewrites: Record<string, string> = {}
-  if (!fs.existsSync(blogDir)) return rewrites
+  if (!fs.existsSync(sectionDir)) return rewrites
 
   const excluded = new Set(['archives.md', 'rss.md', 'README.md'])
   const seen = new Map<string, string>()
-  const files = walkMarkdownFiles(blogDir)
+  const files = walkMarkdownFiles(sectionDir)
 
   for (const filePath of files) {
     const file = path.basename(filePath)
@@ -368,21 +392,32 @@ export function getBlogRewrites(): Record<string, string> {
     if (!slug) continue
 
     const relPath = path
-      .relative(blogDir, filePath)
+      .relative(sectionDir, filePath)
       .replace(/\\/g, '/')
       .replace(/\.md$/, '')
-    const from = `blog/${relPath}.md`
-    const to = `blog/${slug}.md`
+    const from = `${sectionKey}/${relPath}.md`
+    const to = `${sectionKey}/${slug}.md`
     if (from === to) continue
 
     if (seen.has(to)) {
       console.warn(
-        `[slug] 冲突：多篇笔记使用了相同 slug "${slug}"（${seen.get(to)} 与 ${from}），后写覆盖前写`
+        `[slug] 冲突：${sectionKey} 板块多篇笔记使用了相同 slug "${slug}"（${seen.get(to)} 与 ${from}），后写覆盖前写`
       )
     }
     seen.set(to, from)
     rewrites[from] = to
   }
 
+  return rewrites
+}
+
+/**
+ * 汇总所有板块的 rewrites，供 config.ts 使用
+ */
+export function getAllRewrites(): Record<string, string> {
+  const rewrites: Record<string, string> = {}
+  SECTIONS.forEach(section => {
+    Object.assign(rewrites, getSectionRewrites(section.key))
+  })
   return rewrites
 }

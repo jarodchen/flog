@@ -259,19 +259,30 @@ function schedule(fn: () => void) {
   })
 }
 
+/** 滚动容器：桌面端是 .VPContent（独立滚动），移动端是 window。虚拟滚动 / 吸顶都基于它。 */
+function getScroller(): Window | HTMLElement {
+  const vp = document.querySelector<HTMLElement>('.VPContent')
+  if (vp && vp.clientHeight > 0 && vp.scrollHeight > vp.clientHeight) return vp
+  return window
+}
+
 function measure() {
   const el = rootEl.value ?? wrapEl.value
   if (!el) return
   containerWidth.value = el.clientWidth
   const topEl = wrapEl.value ?? rootEl.value
-  wallTop.value = (topEl ? topEl.getBoundingClientRect().top : 0) + window.scrollY
-  viewportH.value = window.innerHeight
-  scrollY.value = window.scrollY
+  const scroller = getScroller()
+  const sTop = scroller === window ? 0 : (scroller as HTMLElement).getBoundingClientRect().top
+  const sScroll = scroller === window ? window.scrollY : (scroller as HTMLElement).scrollTop
+  wallTop.value = (topEl ? topEl.getBoundingClientRect().top - sTop : 0) + sScroll
+  viewportH.value = scroller === window ? window.innerHeight : (scroller as HTMLElement).clientHeight
+  scrollY.value = sScroll
 }
 
 function onScroll() {
   schedule(() => {
-    scrollY.value = window.scrollY
+    const scroller = getScroller()
+    scrollY.value = scroller === window ? window.scrollY : (scroller as HTMLElement).scrollTop
   })
 }
 
@@ -282,6 +293,9 @@ onMounted(() => {
   // 量到真实宽度后再切到精确排版，避免布局跳动
   mounted.value = true
   window.addEventListener('scroll', onScroll, { passive: true })
+  // 桌面端滚动发生在 .VPContent 容器，而非 window
+  const vp = document.querySelector('.VPContent')
+  if (vp) vp.addEventListener('scroll', onScroll, { passive: true })
   if (typeof ResizeObserver !== 'undefined' && rootEl.value) {
     ro = new ResizeObserver(() => schedule(measure))
     ro.observe(rootEl.value)
@@ -293,6 +307,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', onScroll)
+  const vp = document.querySelector('.VPContent')
+  if (vp) vp.removeEventListener('scroll', onScroll)
   window.removeEventListener('resize', measure)
   window.removeEventListener('keydown', onKeydown)
   ro?.disconnect()
@@ -352,7 +368,9 @@ function switchAlbum(key: string) {
   schedule(measure)
   // 切组后滚回墙顶，确保新组从标题开始显示
   if (props.group && typeof window !== 'undefined') {
-    window.scrollTo({ top: wallTop.value - 8, behavior: 'smooth' })
+    const scroller = getScroller()
+    if (scroller === window) window.scrollTo({ top: wallTop.value - 8, behavior: 'smooth' })
+    else (scroller as HTMLElement).scrollTo({ top: wallTop.value - 8, behavior: 'smooth' })
   }
 }
 
@@ -731,6 +749,14 @@ function onKeydown(e: KeyboardEvent) {
   border: 1px solid var(--vp-c-divider);
   border-radius: 12px;
   backdrop-filter: blur(6px);
+}
+
+/* 桌面端 .VPContent 已是独立滚动容器（从 header 下方开始），
+   吸顶工具条贴住容器顶部即可，不必再下移一个 nav 高度 */
+@media (min-width: 960px) {
+  .pw-bar {
+    top: 0;
+  }
 }
 
 /* 组名标签条：点哪个标签显示哪组 */

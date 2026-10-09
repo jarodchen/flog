@@ -1,17 +1,18 @@
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { getBlogPostsMetadata } from './sidebar-generator'
+import { getSectionPostsMetadata } from './sidebar-generator'
 import { SITE_BASE } from './base'
+import { SECTIONS, getSection, sectionUrl } from './sections'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 /**
- * 获取所有分类及其文章列表
+ * 获取【指定板块】所有分类及其文章列表
  */
-export function getCategories() {
-  const posts = getBlogPostsMetadata()
+export function getCategories(sectionKey: string) {
+  const posts = getSectionPostsMetadata(sectionKey)
   const categories: Record<string, typeof posts> = {}
 
   posts.forEach(post => {
@@ -40,21 +41,22 @@ export function getCategories() {
 }
 
 /**
- * 生成分类索引页面
+ * 生成【指定板块】的分类索引页面
  */
-export function updateCategoriesIndexPage() {
+export function updateCategoriesIndexPage(sectionKey: string) {
   try {
-    const categories = getCategories()
+    const section = getSection(sectionKey)
+    const categories = getCategories(sectionKey)
     const categoryNames = Object.keys(categories).sort()
 
     let content = `---
-title: 分类索引
-description: 按分类浏览技术文章
+title: ${section.name} · 分类索引
+description: 按分类浏览${section.name}板块的文章
 ---
 
-# 分类索引
+# ${section.emoji} ${section.name} · 分类索引
 
-按技术领域分类浏览文章，快速定位感兴趣的内容。
+按分类浏览「${section.name}」板块的文章，快速定位感兴趣的内容。
 
 `
 
@@ -81,7 +83,7 @@ description: 按分类浏览技术文章
       const icon = categoryIcons[name] || '📁'
       const posts = categories[name]
       const filename = name.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '-')
-      const link = SITE_BASE + 'blog/categories/' + filename
+      const link = sectionUrl(sectionKey, 'categories', filename)
       const latest = posts.slice(0, 3).map(p => p.title)
       return { name, icon, count: posts.length, link, latest }
     })
@@ -107,7 +109,7 @@ const hotCategories = ${hotJson}
       const count = posts.length
       // 生成友好的 URL 路径
       const filename = category.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '-')
-      const link = SITE_BASE + 'blog/categories/' + filename
+      const link = sectionUrl(sectionKey, 'categories', filename)
 
       content += `<div style="border: 1px solid var(--vp-c-divider); border-radius: 8px; padding: 20px; transition: all 0.2s ease;" onmouseover="this.style.borderColor='var(--vp-c-brand)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'" onmouseout="this.style.borderColor='var(--vp-c-divider)'; this.style.boxShadow='none'">
   <h3 style="margin: 0 0 12px 0; font-size: 1.1em; display: flex; justify-content: space-between; align-items: center;">
@@ -145,14 +147,14 @@ const hotCategories = ${hotJson}
 
 ---
 
-[← 返回博客首页](../index.md) | [查看所有文章归档](../archives.md)
+[← 返回${section.name}首页](../index.md) | [查看所有文章归档](../archives.md)
 
 <!--
-  注意：此文件由 blog-utils.ts 自动生成，请勿手动编辑。
+  注意：此文件由 category-generator.ts 自动生成，请勿手动编辑。
 -->
 `
 
-    const outputPath = path.resolve(__dirname, '../blog/categories/index.md')
+    const outputPath = path.resolve(__dirname, `../${sectionKey}/categories/index.md`)
 
     // 确保目录存在
     const outputDir = path.dirname(outputPath)
@@ -171,9 +173,10 @@ const hotCategories = ${hotJson}
 /**
  * 生成单个分类的详细页面（卡片网格，响应式布局，全部展示无需分页）
  */
-export function updateCategoryPage(category: string) {
+export function updateCategoryPage(sectionKey: string, category: string) {
   try {
-    const categories = getCategories()
+    const section = getSection(sectionKey)
+    const categories = getCategories(sectionKey)
     const posts = categories[category]
 
     if (!posts || posts.length === 0) {
@@ -208,14 +211,14 @@ export function updateCategoryPage(category: string) {
     const categoryJson = JSON.stringify(category)
 
     const content = `---
-title: ${category}
-description: 浏览${category}相关的所有技术文章
+title: ${section.name} · ${category}
+description: 浏览${section.name}板块中${category}分类的所有文章
 aside: false
 ---
 
 # ${icon} ${category}
 
-本分类共 ${posts.length} 篇文章。
+「${section.name}」板块中本分类共 ${posts.length} 篇文章。
 
 <script setup>
 const categoryName = ${categoryJson}
@@ -384,12 +387,12 @@ const posts = ${postsJson}
 [← 返回分类索引](./index.md) | [查看所有文章归档](../archives.md)
 
 <!--
-  注意：此文件由 blog-utils.ts 自动生成，请勿手动编辑。
+  注意：此文件由 category-generator.ts 自动生成，请勿手动编辑。
 -->
 `
 
     const filename = category.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '-') + '.md'
-    const outputPath = path.resolve(__dirname, `../blog/categories/${filename}`)
+    const outputPath = path.resolve(__dirname, `../${sectionKey}/categories/${filename}`)
 
     // 确保目录存在
     const outputDir = path.dirname(outputPath)
@@ -406,25 +409,35 @@ const posts = ${postsJson}
 }
 
 /**
- * 生成所有分类页面
+ * 生成【指定板块】的所有分类页面
  */
-export function updateAllCategoryPages() {
+export function updateAllCategoryPages(sectionKey: string) {
   try {
-    const categories = getCategories()
+    const section = getSection(sectionKey)
+    const categories = getCategories(sectionKey)
     const categoryNames = Object.keys(categories)
 
-    console.log(`\n📂 开始生成分类页面...`)
+    console.log(`\n📂 开始生成「${section.name}」分类页面...`)
 
     // 生成分类索引页
-    updateCategoriesIndexPage()
+    updateCategoriesIndexPage(sectionKey)
 
     // 为每个分类生成详细页面
     categoryNames.forEach(category => {
-      updateCategoryPage(category)
+      updateCategoryPage(sectionKey, category)
     })
 
-    console.log(`✅ 所有分类页面已生成 (${categoryNames.length} 个分类)\n`)
+    console.log(`✅ 「${section.name}」分类页面已生成 (${categoryNames.length} 个分类)\n`)
   } catch (error) {
     console.error('❌ 生成分类页面失败:', error.message)
   }
+}
+
+/**
+ * 为所有板块生成分类页面（空板块也会生成索引页，避免导航链接 404）
+ */
+export function updateAllCategoryPagesAllSections() {
+  SECTIONS.forEach(section => {
+    updateAllCategoryPages(section.key)
+  })
 }

@@ -5,21 +5,35 @@ import { ref, onMounted, onUnmounted } from 'vue'
 const THRESHOLD = 300
 const visible = ref(false)
 
+// 桌面端内容区是独立滚动容器（.VPContent），移动端仍是整窗滚动，这里自动判断
+function getScroller(): Window | HTMLElement {
+  const el = document.querySelector<HTMLElement>('.VPContent')
+  if (el && el.scrollHeight > el.clientHeight + 4) return el
+  return window
+}
+
 function onScroll() {
-  visible.value = window.scrollY > THRESHOLD
+  const scroller = getScroller()
+  const y = scroller === window ? window.scrollY : (scroller as HTMLElement).scrollTop
+  visible.value = y > THRESHOLD
 }
 
 function scrollToTop() {
-  window.scrollTo({ top: 0, behavior: 'smooth' })
+  const scroller = getScroller()
+  scroller.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 onMounted(() => {
   window.addEventListener('scroll', onScroll, { passive: true })
+  const el = document.querySelector('.VPContent')
+  if (el) el.addEventListener('scroll', onScroll, { passive: true })
   onScroll()
 })
 
 onUnmounted(() => {
   window.removeEventListener('scroll', onScroll)
+  const el = document.querySelector('.VPContent')
+  if (el) el.removeEventListener('scroll', onScroll)
 })
 </script>
 

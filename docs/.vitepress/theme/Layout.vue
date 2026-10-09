@@ -4,9 +4,10 @@ import { useData } from 'vitepress'
 import { computed, defineAsyncComponent } from 'vue'
 import BackToTop from './components/BackToTop.vue'
 import { SITE_BASE } from '../base'
+import { SECTIONS, BLOG_SECTION } from '../sections'
 
 const { Layout } = DefaultTheme
-const { frontmatter } = useData()
+const { frontmatter, page } = useData()
 
 // 仅博客文章页显示元信息（有 title + date 视为文章页）
 const isPost = computed(
@@ -16,8 +17,16 @@ const isPost = computed(
 const banner = computed(() =>  SITE_BASE + frontmatter.value.banner)
 
 
+/**
+ * 标签链接指向【当前文章所属板块】的标签页。
+ * 板块由当前页面的源文件路径推断（blog / english / economics / law），
+ * 推断不到时回退到随笔板块。
+ */
 function tagLink(tag: string) {
-  return SITE_BASE + `blog/tags/${tag.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '-')}`
+  const relPath = (page.value?.relativePath || page.value?.filePath || '').replace(/\\/g, '/')
+  const sectionKey =
+    SECTIONS.find(section => relPath.startsWith(section.key + '/'))?.key || BLOG_SECTION.key
+  return SITE_BASE + `${sectionKey}/tags/${tag.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '-')}`
 }
 
 // Mermaid 平移缩放：该插件依赖 svg-pan-zoom（模块顶层引用 window / MutationObserver），
@@ -256,5 +265,25 @@ html {
 
 ::-webkit-scrollbar-thumb:hover {
   background-color: var(--vp-c-text-3);
+}
+
+/* 桌面端：仅内容区滚动，滚动条不穿过 header
+   - 整窗不再滚动（overflow: hidden）
+   - .VPContent 成为独立滚动容器，从 header 下方开始，滚动条只出现在这里 */
+@media (min-width: 960px) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .VPContent {
+    margin-top: var(--vp-nav-height) !important;
+    height: calc(100vh - var(--vp-nav-height)) !important;
+    padding-top: 0 !important;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+  }
 }
 </style>

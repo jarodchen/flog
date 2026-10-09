@@ -1,19 +1,21 @@
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { getBlogPostsMetadata } from './sidebar-generator'
+import { getSectionPostsMetadata } from './sidebar-generator'
 import { SITE_BASE } from './base'
+import { SECTIONS, getSection, sectionUrl } from './sections'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 /**
- * 生成标签索引页面
- * 汇总所有标签，生成标签云页面（/blog/tags/index.md）
+ * 生成【指定板块】的标签索引页面
+ * 汇总该板块所有标签，生成标签云页面（docs/<sectionKey>/tags/index.md）
  */
-export function updateTagsIndexPage() {
+export function updateTagsIndexPage(sectionKey: string) {
   try {
-    const posts = getBlogPostsMetadata()
+    const section = getSection(sectionKey)
+    const posts = getSectionPostsMetadata(sectionKey)
 
     // 按标签分组
     const postsByTag: Record<string, typeof posts> = {}
@@ -29,13 +31,13 @@ export function updateTagsIndexPage() {
     const tagNames = Object.keys(postsByTag).sort()
 
     let content = `---
-title: 标签索引
-description: 按标签浏览技术文章
+title: ${section.name} · 标签索引
+description: 按标签浏览${section.name}板块的文章
 ---
 
-# 🏷️ 标签索引
+# 🏷️ ${section.name} · 标签索引
 
-按技术主题标签浏览文章，快速定位感兴趣的内容。
+按标签浏览「${section.name}」板块的文章，快速定位感兴趣的内容。
 
 <div class="tags-cloud">
 
@@ -43,7 +45,7 @@ description: 按标签浏览技术文章
 
     tagNames.forEach(tag => {
       const count = postsByTag[tag].length
-      const tagLink = SITE_BASE + 'blog/tags/' + tag.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '-')
+      const tagLink = sectionUrl(sectionKey, 'tags', tag.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '-'))
       content += `  <a class="tag-pill" href="${tagLink}"><span class="tag-name">${tag}</span><span class="tag-count">${count}</span></a>\n`
     })
 
@@ -116,14 +118,14 @@ description: 按标签浏览技术文章
 
 ---
 
-[← 返回博客首页](../index.md) | [查看所有文章归档](../archives.md)
+[← 返回${section.name}首页](../index.md) | [查看所有文章归档](../archives.md)
 
 <!--
   注意：此文件由 tag-generator.ts 自动生成，请勿手动编辑。
 -->
 `
 
-    const outputPath = path.resolve(__dirname, '../blog/tags/index.md')
+    const outputPath = path.resolve(__dirname, `../${sectionKey}/tags/index.md`)
 
     const outputDir = path.dirname(outputPath)
     if (!fs.existsSync(outputDir)) {
@@ -141,9 +143,10 @@ description: 按标签浏览技术文章
 /**
  * 生成单个标签的详细页面（卡片网格 + 横幅缩略图）
  */
-export function updateTagPage(tag: string) {
+export function updateTagPage(sectionKey: string, tag: string) {
   try {
-    const posts = getBlogPostsMetadata().filter(post => post.tags.includes(tag))
+    const section = getSection(sectionKey)
+    const posts = getSectionPostsMetadata(sectionKey).filter(post => post.tags.includes(tag))
 
     if (!posts || posts.length === 0) {
       return
@@ -165,14 +168,14 @@ export function updateTagPage(tag: string) {
       .replace(/\$\{/g, '\\u0024\\u007b')
 
     const content = `---
-title: ${tag}
-description: 浏览标签「${tag}」相关的所有技术文章
+title: ${section.name} · ${tag}
+description: 浏览${section.name}板块中标签「${tag}」相关的所有文章
 aside: false
 ---
 
 # 🏷️ ${tag}
 
-本标签共 ${posts.length} 篇文章。
+「${section.name}」板块中本标签共 ${posts.length} 篇文章。
 
 <script setup>
 const tagName = ${tagJson}
@@ -344,7 +347,7 @@ const posts = ${postsJson}
 `
 
     const filename = tag.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '-') + '.md'
-    const outputPath = path.resolve(__dirname, `../blog/tags/${filename}`)
+    const outputPath = path.resolve(__dirname, `../${sectionKey}/tags/${filename}`)
 
     const outputDir = path.dirname(outputPath)
     if (!fs.existsSync(outputDir)) {
@@ -360,24 +363,34 @@ const posts = ${postsJson}
 }
 
 /**
- * 生成所有标签页面
+ * 生成【指定板块】的所有标签页面
  */
-export function updateAllTagPages() {
+export function updateAllTagPages(sectionKey: string) {
   try {
-    const posts = getBlogPostsMetadata()
+    const section = getSection(sectionKey)
+    const posts = getSectionPostsMetadata(sectionKey)
     const tags = new Set<string>()
     posts.forEach(post => post.tags.forEach(tag => tags.add(tag)))
 
-    console.log(`\n🏷️ 开始生成标签页面...`)
+    console.log(`\n🏷️ 开始生成「${section.name}」标签页面...`)
 
-    updateTagsIndexPage()
+    updateTagsIndexPage(sectionKey)
 
     ;[...tags].forEach(tag => {
-      updateTagPage(tag)
+      updateTagPage(sectionKey, tag)
     })
 
-    console.log(`✅ 所有标签页面已生成 (${tags.size} 个标签)\n`)
+    console.log(`✅ 「${section.name}」标签页面已生成 (${tags.size} 个标签)\n`)
   } catch (error) {
     console.error('❌ 生成标签页面失败:', error.message)
   }
+}
+
+/**
+ * 为所有板块生成标签页面（空板块也会生成索引页，避免导航链接 404）
+ */
+export function updateAllTagPagesAllSections() {
+  SECTIONS.forEach(section => {
+    updateAllTagPages(section.key)
+  })
 }
