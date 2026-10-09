@@ -5,9 +5,9 @@ import { ref, onMounted, onUnmounted } from 'vue'
 const THRESHOLD = 300
 const visible = ref(false)
 
-// 桌面端内容区是独立滚动容器（.VPContent），移动端仍是整窗滚动，这里自动判断
+// 桌面端滚动容器是 .Layout（从 header 下方开始），移动端仍是整窗滚动，这里自动判断
 function getScroller(): Window | HTMLElement {
-  const el = document.querySelector<HTMLElement>('.VPContent')
+  const el = document.querySelector<HTMLElement>('.Layout')
   if (el && el.scrollHeight > el.clientHeight + 4) return el
   return window
 }
@@ -25,14 +25,14 @@ function scrollToTop() {
 
 onMounted(() => {
   window.addEventListener('scroll', onScroll, { passive: true })
-  const el = document.querySelector('.VPContent')
+  const el = document.querySelector('.Layout')
   if (el) el.addEventListener('scroll', onScroll, { passive: true })
   onScroll()
 })
 
 onUnmounted(() => {
   window.removeEventListener('scroll', onScroll)
-  const el = document.querySelector('.VPContent')
+  const el = document.querySelector('.Layout')
   if (el) el.removeEventListener('scroll', onScroll)
 })
 </script>

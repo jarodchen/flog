@@ -259,10 +259,10 @@ function schedule(fn: () => void) {
   })
 }
 
-/** 滚动容器：桌面端是 .VPContent（独立滚动），移动端是 window。虚拟滚动 / 吸顶都基于它。 */
+/** 滚动容器：桌面端是 .Layout（从 header 下方开始、铺满剩余视口），移动端是 window。虚拟滚动 / 吸顶都基于它。 */
 function getScroller(): Window | HTMLElement {
-  const vp = document.querySelector<HTMLElement>('.VPContent')
-  if (vp && vp.clientHeight > 0 && vp.scrollHeight > vp.clientHeight) return vp
+  const layout = document.querySelector<HTMLElement>('.Layout')
+  if (layout && layout.clientHeight > 0 && layout.scrollHeight > layout.clientHeight) return layout
   return window
 }
 
@@ -293,9 +293,9 @@ onMounted(() => {
   // 量到真实宽度后再切到精确排版，避免布局跳动
   mounted.value = true
   window.addEventListener('scroll', onScroll, { passive: true })
-  // 桌面端滚动发生在 .VPContent 容器，而非 window
-  const vp = document.querySelector('.VPContent')
-  if (vp) vp.addEventListener('scroll', onScroll, { passive: true })
+  // 桌面端滚动发生在 .Layout 容器，而非 window
+  const layout = document.querySelector('.Layout')
+  if (layout) layout.addEventListener('scroll', onScroll, { passive: true })
   if (typeof ResizeObserver !== 'undefined' && rootEl.value) {
     ro = new ResizeObserver(() => schedule(measure))
     ro.observe(rootEl.value)
@@ -307,8 +307,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', onScroll)
-  const vp = document.querySelector('.VPContent')
-  if (vp) vp.removeEventListener('scroll', onScroll)
+  const layout = document.querySelector('.Layout')
+  if (layout) layout.removeEventListener('scroll', onScroll)
   window.removeEventListener('resize', measure)
   window.removeEventListener('keydown', onKeydown)
   ro?.disconnect()
@@ -751,7 +751,7 @@ function onKeydown(e: KeyboardEvent) {
   backdrop-filter: blur(6px);
 }
 
-/* 桌面端 .VPContent 已是独立滚动容器（从 header 下方开始），
+/* 桌面端 .Layout 已是滚动容器（从 header 下方开始），
    吸顶工具条贴住容器顶部即可，不必再下移一个 nav 高度 */
 @media (min-width: 960px) {
   .pw-bar {
