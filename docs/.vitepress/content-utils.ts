@@ -239,7 +239,7 @@ description: ${section.description}
       content += '\n'
     }
 
-    content += `---\n\n[📚 文章归档](${sectionPath(sectionKey, 'archives')}) | [🏷️ 标签索引](${sectionPath(sectionKey, 'tags')}) | [📁 分类索引](${sectionPath(sectionKey, 'categories')}/)\n\n`
+    content += `---\n\n[📚 文章归档](${sectionPath(sectionKey, 'archives')}) | [🏷️ 标签索引](${sectionPath(sectionKey, 'tags')}/) | [📁 分类索引](${sectionPath(sectionKey, 'categories')}/)\n\n`
 
     content += `<!--
   注意：此文件由 content-utils.ts 自动生成，请勿手动编辑。
