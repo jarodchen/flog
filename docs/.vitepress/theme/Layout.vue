@@ -269,7 +269,10 @@ html {
 
 /* 桌面端：仅内容区滚动，滚动条不穿过 header
    - 整窗不再滚动（overflow: hidden）
-   - .VPContent 成为独立滚动容器，从 header 下方开始，滚动条只出现在这里 */
+   - 根布局改为 flex 纵向列：内容区(可滚) + 页脚(固定底部)
+   - .VPContent 仍是独立滚动容器（flex:1 + min-height:0），从 header 下方开始
+   - 页脚 .VPFooter 是 .VPContent 的兄弟节点，原本会被 overflow:hidden 裁到视口外；
+     这里用 flex:0 0 auto 让它常驻视口底部、随内容滚到末尾时出现，不再丢失 */
 @media (min-width: 960px) {
   html,
   body {
@@ -277,13 +280,24 @@ html {
     overflow: hidden;
   }
 
+  .Layout {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
   .VPContent {
+    flex: 1 1 auto;
+    min-height: 0;
     margin-top: var(--vp-nav-height) !important;
-    height: calc(100vh - var(--vp-nav-height)) !important;
     padding-top: 0 !important;
     overflow-y: auto;
     overflow-x: hidden;
     scroll-behavior: smooth;
+  }
+
+  .VPFooter {
+    flex: 0 0 auto;
   }
 }
 </style>
