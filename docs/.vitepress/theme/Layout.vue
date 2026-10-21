@@ -1,27 +1,13 @@
 ﻿<script setup lang="ts">
 import DefaultTheme from 'vitepress/theme'
-import { useData, useRoute } from 'vitepress'
-import { computed, defineAsyncComponent, watch, nextTick } from 'vue'
+import { useData } from 'vitepress'
+import { computed, defineAsyncComponent } from 'vue'
 import BackToTop from './components/BackToTop.vue'
 import { SITE_BASE } from '../base'
 import { SECTIONS, BLOG_SECTION } from '../sections'
 
 const { Layout } = DefaultTheme
 const { frontmatter, page } = useData()
-
-// 桌面端滚动容器改成了 .Layout（而非整窗）。VitePress 内置的滚动复位依赖 window 滚动，
-// 对 .Layout 无效，故这里在路由切换（非锚点跳转）时手动把 .Layout 滚回顶部。
-const route = useRoute()
-watch(
-  () => route.path,
-  () => {
-    if (route.hash) return // 带锚点的跳转交给 VitePress 自行定位
-    nextTick(() => {
-      const el = document.querySelector<HTMLElement>('.Layout')
-      if (el) el.scrollTop = 0
-    })
-  }
-)
 
 // 仅博客文章页显示元信息（有 title + date 视为文章页）
 const isPost = computed(
@@ -281,43 +267,4 @@ html {
   background-color: var(--vp-c-text-3);
 }
 
-/* 桌面端：滚动容器改为整个 .Layout（绝对定位到 header 以下，铺满剩余视口）
-   - 整窗不再滚动（overflow: hidden），唯一滚动容器是 .Layout
-   - 滚动条只在 header 以下，不穿过 header
-   - 页脚 .VPFooter 是 .Layout 的子节点，随内容一起滚到末尾、自然排布（不再钉死在视口底）
-   - .VPContent 回到默认文档流（不再单独定高 / overflow）；
-     图片墙虚拟滚动、回到顶部等基于“此滚动容器”的逻辑统一改挂到 .Layout（见 PhotoWall / BackToTop） */
-@media (min-width: 960px) {
-  html,
-  body {
-    height: 100%;
-    overflow: hidden;
-  }
-
-  /* 注意：VitePress 默认 .Layout 带 min-height:100vh 且选择器带了 [data-v-*] 后缀、
-     特异性比这里高。用 .Layout.Layout 提升特异性把它压住，并显式 min-height:0，
-     否则容器会被撑成 100vh 高、从 nav 处往下延伸，底部 nav 高度被视口裁掉，页脚显示不全。 */
-  .Layout.Layout {
-    position: absolute;
-    top: var(--vp-nav-height);
-    left: 0;
-    right: 0;
-    bottom: 0;
-    min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    scroll-behavior: smooth;
-  }
-
-  /* .Layout 已从 header 下方开始，内容不再需要额外下移 */
-  .VPContent {
-    margin-top: 0 !important;
-    padding-top: 0 !important;
-  }
-
-  /* 锚点滚动后标题与 header 留一点间隔即可（header 已由 .Layout 顶边承担） */
-  .VPContent :is(h1, h2, h3, h4, h5, h6) {
-    scroll-margin-top: 16px;
-  }
-}
 </style>
