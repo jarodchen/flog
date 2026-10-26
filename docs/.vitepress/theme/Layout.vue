@@ -267,4 +267,34 @@ html {
   background-color: var(--vp-c-text-3);
 }
 
+/* 桌面端：让内容区（.Layout）自己滚动，滚动条因此只出现在顶栏以下、不覆盖 header。
+   窗口不再滚动（overflow:hidden），VitePress 大纲里的 <a href="#id"> 走浏览器原生锚点跳转，
+   由内容区自行滚动到目标——全程不劫持 window 任何滚动 API。 */
+@media (min-width: 960px) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* .Layout 默认带 min-height:100vh 且选择器带数据属性后缀、特异性更高，
+     用 .Layout.Layout 提升特异性压住，并显式 min-height:0 让它按视口高度收缩、可滚。 */
+  .Layout.Layout {
+    position: absolute;
+    top: var(--vp-nav-height);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+  }
+
+  /* .Layout 已从顶栏下方开始，内容不再需要额外下移 */
+  .VPContent {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
+}
 </style>
